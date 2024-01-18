@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: producer
+  labels:
+    app: producer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: producer
+  template:
+    metadata:
+      labels:
+        app: producer
+      annotations:
+        dapr.io/enabled: "true"
+        dapr.io/id: "producer"
+        dapr.io/protocol: "grpc"
+    spec:
+      containers:
+      - name: producer
+        image: youngp/producer:latest
+        ports:
+        - containerPort: 3000
+        imagePullPolicy: Always
