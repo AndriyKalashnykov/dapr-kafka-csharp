@@ -36,7 +36,7 @@ spec:
     spec:
       containers:
       - name: consumer
-        image: youngp/consumer:latest
+        image: andriykalashnykov/consumer:latest
         ports:
         - containerPort: 6000
         imagePullPolicy: Always

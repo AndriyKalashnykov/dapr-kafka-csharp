@@ -1,6 +1,7 @@
 .DEFAULT_GOAL := help
 
-CONSUMER_IMG ?= kafka-confluent-net-consumer:latest
+PRODUCER_IMG ?= andriykalashnykov/producer:latest
+CONSUMER_IMG ?= andriykalashnykov/consumer:latest
 CURRENTTAG:=$(shell git describe --tags --abbrev=0)
 NEWTAG ?= $(shell bash -c 'read -p "Please provide a new tag (currnet tag - ${CURRENTTAG}): " newtag; echo $$newtag')
 
@@ -40,26 +41,27 @@ release:
 version:
 	@echo $(shell git describe --tags --abbrev=0)
 
-#consumer-image-build: @ Build Consumer Docker image
-consumer-image-build: build
-	docker build -t ${CONSUMER_IMG} -f Dockerfile.consumer .
+#producer-image-build: @ Build Producer Docker image
+producer-image-build: build
+	docker build -t ${PRODUCER_IMG} -f producer/Dockerfile .
+	docker build -t ${CONSUMER_IMG} -f consumer/Dockerfile .
 
-#consumer-image-run: @ Run a Docker image
-consumer-image-run: consumer-image-stop consumer-image-build
+#producer-image-run: @ Run a Docker image
+producer-image-run: producer-image-stop producer-image-build
 	$(call setup_env)
 	docker compose -f "docker-compose.yml" up
 
-#consumer-image-stop: @ Run a Docker image
-consumer-image-stop:
+#producer-image-stop: @ Run a Docker image
+producer-image-stop:
 	docker compose -f "docker-compose.yml" down
 
 #runp: @ Run producer
 runp: build
-	dotnet run --project producer/producer.csproj $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/kafka.properties
+	dotnet run --project producer/producer.csproj
 
 #runc: @ Run consumer
 runc: build
-	dotnet run --project consumer/consumer.csproj $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/kafka.properties
+	dotnet run --project consumer/consumer.csproj
 
 #k8s-deploy: @ Deploy to a local KinD cluster
 k8s-deploy:

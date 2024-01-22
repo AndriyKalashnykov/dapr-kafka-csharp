@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: producer
-        image: youngp/producer:latest
+        image: andriykalashnykov/producer:latest
         ports:
         - containerPort: 3000
         imagePullPolicy: Always
