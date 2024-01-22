@@ -8,6 +8,10 @@
 ```bash
 dotnet --list-sdks
 dotnet --list-runtimes
+
+sudo apt-get install -y dotnet-host dotnet-sdk-8.0
+sudo apt-get install -y aspnetcore-runtime-8.0
+dotnet build consumer.csproj
 ```
 4. Clone the sample repo
 
