@@ -11,7 +11,21 @@ dotnet --list-runtimes
 
 sudo apt-get install -y dotnet-host dotnet-sdk-8.0
 sudo apt-get install -y aspnetcore-runtime-8.0
-dotnet build consumer.csproj
+
+sudo apt remove dotnet-sdk* dotnet-host* dotnet* aspnetcore* netstandard*
+sudo apt remove aspnetcore*
+sudo apt remove netstandard*
+sudo apt remove dotnet-host*
+sudo apt purge dotnet-sdk* dotnet-host* dotnet* aspnetcore* netstandard*
+sudo rm -f /etc/apt/sources.list.d/mssql-release.list
+sudo rm /etc/apt/sources.list.d/microsoft-prod.list
+sudo rm /etc/apt/sources.list.d/microsoft-prod.list.save
+sudo apt update
+sudo apt install dotnet-sdk-8.0
+sudo apt install dotnet-host-8.0
+dotnet workload update
+source ~/.bashrc
+dotnet sdk check
 ```
 4. Clone the sample repo
 
