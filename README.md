@@ -5,6 +5,10 @@
 1. [Install Docker](https://www.docker.com/products/docker-desktop)
 2. [Install Dapr CLI](https://github.com/dapr/docs/blob/master/getting-started/environment-setup.md#installing-dapr-cli)
 3. [Install .Net Core SDK 8.0](https://dotnet.microsoft.com/download)
+```bash
+dotnet --list-sdks
+dotnet --list-runtimes
+```
 4. Clone the sample repo
 
 ```
