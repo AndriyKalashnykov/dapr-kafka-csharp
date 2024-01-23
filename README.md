@@ -30,7 +30,7 @@ dotnet sdk check
 4. Clone the sample repo
 
 ```
-git clone https://github.com/azure-octo/dapr-kafka-csharp.git
+git clone https://github.com/andriykalashnykov/dapr-kafka-csharp.git
 ```
 
 ## Running locally
@@ -152,8 +152,8 @@ docker push [docker_registry]/producer:latest
 ```
 
 4. Update image names
-  * Update imagename to [docker_registry]/consumer:latest in [deploy/consumer.yaml](https://github.com/azure-octo/dapr-kafka-csharp/blob/master/deploy/consumer.yaml#L39)
-  * Update imagename to [docker_registry]/producer:latest in [deploy/producer.yaml](https://github.com/azure-octo/dapr-kafka-csharp/blob/master/deploy/producer.yaml#L23)
+  * Update imagename to [docker_registry]/consumer:latest in [deploy/consumer.yaml](https://github.com/andriykalashnykov/dapr-kafka-csharp/blob/master/deploy/consumer.yaml#L39)
+  * Update imagename to [docker_registry]/producer:latest in [deploy/producer.yaml](https://github.com/andriykalashnykov/dapr-kafka-csharp/blob/master/deploy/producer.yaml#L23)
 
 ## Cleanup
 
