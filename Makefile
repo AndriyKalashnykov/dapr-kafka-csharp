@@ -77,9 +77,9 @@ k8s-undeploy:
 
 # upgrade outdated https://github.com/NuGet/Home/issues/4103
 upgrade:
-	cd consumer && dotnet list package --outdated | grep -o '> \S.' | grep '[^> ].' -o | awk '{system("dotnet add package "$1 " -v " $4)}'
-	cd models && dotnet list package --outdated | grep -o '> \S.' | grep '[^> ].' -o | awk '{system("dotnet add package "$1 " -v " $4)}'
-	cd producer && dotnet list package --outdated | grep -o '> \S.' | grep '[^> ].' -o | awk '{system("dotnet add package "$1 " -v " $4)}'
+	@cd consumer && dotnet list package --outdated | grep -o '> \S.' | grep '[^> ].' -o | awk '{system("dotnet add package "$1 " -v " $4)}'
+	@cd models && dotnet list package --outdated | grep -o '> \S.' | grep '[^> ].' -o | awk '{system("dotnet add package "$1 " -v " $4)}'
+	@cd producer && dotnet list package --outdated | grep -o '> \S.' | grep '[^> ].' -o | awk '{system("dotnet add package "$1 " -v " $4)}'
 
 # ssh into pod
 # kubectl exec --stdin --tty -n kafka-confluent-examples kafka-confluent-go-56686b9958-ft2bh -- /bin/sh
