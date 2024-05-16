@@ -3,14 +3,20 @@
 ## Pre-requisites
 
 1. [Install Docker](https://www.docker.com/products/docker-desktop)
-2. [Install Dapr CLI](https://github.com/dapr/docs/blob/master/getting-started/environment-setup.md#installing-dapr-cli)
+2. [Install Dapr CLI](https://docs.dapr.io/getting-started/install-dapr-cli/)
 3. [Install .Net Core SDK 8.0](https://dotnet.microsoft.com/download)
 ```bash
 dotnet --list-sdks
 dotnet --list-runtimes
 
-sudo apt-get install -y dotnet-host dotnet-sdk-8.0
+sudo apt-get install -y dotnet-sdk-8.0
+sudo apt-get install -y dotnet-host 
 sudo apt-get install -y aspnetcore-runtime-8.0
+sudo apt-get install -y dotnet-runtime-8.0
+dotnet sdk check
+dotnet --list-sdks
+dotnet --list-runtimes
+
 
 sudo apt remove dotnet-sdk* dotnet-host* dotnet* aspnetcore* netstandard*
 sudo apt remove aspnetcore*
@@ -21,8 +27,10 @@ sudo rm -f /etc/apt/sources.list.d/mssql-release.list
 sudo rm /etc/apt/sources.list.d/microsoft-prod.list
 sudo rm /etc/apt/sources.list.d/microsoft-prod.list.save
 sudo apt update
-sudo apt install dotnet-sdk-8.0
-sudo apt install dotnet-host-8.0
+sudo apt-get install -y dotnet-sdk-8.0
+sudo apt-get install -y dotnet-host 
+sudo apt-get install -y aspnetcore-runtime-8.0
+sudo apt-get install -y dotnet-runtime-8.0
 dotnet workload update
 source ~/.bashrc
 dotnet sdk check
@@ -47,7 +55,7 @@ $ dapr init
 
 In order to run the Kafka bindings sample locally, you will run the [Kafka broker server](https://github.com/wurstmeister/kafka-docker) in a docker container on your machine. Make sure docker is running in Linux mode.
 
-1. Run `docker-compose -f ./docker-compose-kafka.yml up -d` to run the container locally
+1. Run `docker-compose -f ./docker-compose-kafka.yaml up -d` to run the container locally
 2. Run `docker ps` to see the container running locally: 
 
 ```bash
@@ -75,7 +83,7 @@ dapr run --app-id producer dotnet run
 ### Uninstall Kafka
 
 ```
-docker-compose -f ./docker-compose-kafka.yml down
+docker-compose -f ./docker-compose-kafka.yaml down
 ```
 
 ## Run in Kubernetes cluster

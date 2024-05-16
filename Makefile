@@ -41,19 +41,19 @@ release:
 version:
 	@echo $(shell git describe --tags --abbrev=0)
 
-#producer-image-build: @ Build Producer Docker image
-producer-image-build: build
+#image-build: @ Build Docker images
+image-build: build
 	docker build -t ${PRODUCER_IMG} -f producer/Dockerfile .
 	docker build -t ${CONSUMER_IMG} -f consumer/Dockerfile .
 
-#producer-image-run: @ Run a Docker image
-producer-image-run: producer-image-stop producer-image-build
+#image-run: @ Run a Docker image
+image-run: image-stop image-build
 	$(call setup_env)
-	docker compose -f "docker-compose.yml" up
+	docker compose -f "docker-compose-kafka.yaml" up
 
-#producer-image-stop: @ Run a Docker image
-producer-image-stop:
-	docker compose -f "docker-compose.yml" down
+#image-stop: @ Run a Docker image
+image-stop:
+	docker compose -f "docker-compose-kafka.yaml" down
 
 #runp: @ Run producer
 runp: build
