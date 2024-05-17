@@ -1,10 +1,31 @@
-version: '2'
+version: '3.8'
+
+networks:
+  kafka-net:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.0.0/16
+
 services:
+  
   zookeeper:
+    
+    networks:
+      kafka-net:
+        ipv4_address: 172.28.1.2
+        
     image: wurstmeister/zookeeper:latest
     ports:
       - "2181:2181"
+  
   kafka:
+    networks:
+      kafka-net:
+        ipv4_address: 172.28.1.1
+        
+    depends_on:
+      - zookeeper
     image: wurstmeister/kafka:latest
     ports:
       - "9092:9092"

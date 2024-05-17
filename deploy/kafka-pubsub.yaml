@@ -11,7 +11,6 @@ spec:
     - name: brokers
       # Comma separated list of kafka brokers
       value: "dapr-kafka.kafka.svc.cluster.local:9092"
-      # Enable auth. Default is "false"
     - name: clientID # Optional. Used as client tracing ID by Kafka brokers.
       value: "my-dapr-app-id"
     - name: authType # Required.
