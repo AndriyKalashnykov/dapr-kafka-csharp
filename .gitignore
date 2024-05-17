@@ -58,6 +58,7 @@ Repository Bloat Risks
 *.user
 *.userosscache
 *.sln.docstates
+*.tar
 
 # Build results
 [Dd]ebug/

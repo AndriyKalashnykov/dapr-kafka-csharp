@@ -16,7 +16,8 @@ FROM build AS publish
 RUN dotnet publish "consumer.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 # Build runtime image
-FROM runtime AS final
+#FROM runtime AS final
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "consumer.dll"]

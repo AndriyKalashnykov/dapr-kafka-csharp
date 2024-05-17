@@ -13,7 +13,7 @@ services:
     # user if not 1000. See https://aka.ms/vscode-remote/containers/non-root for details.
     # user: vscode
 
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile
 
@@ -43,6 +43,6 @@ services:
     # Overrides default command so things don't shut down after the process ends.
     command: sleep infinity
 
-networks: 
+networks:
   default:
     name: dapr-dev-container

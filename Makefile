@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 
-PRODUCER_IMG ?= andriykalashnykov/producer:latest
-CONSUMER_IMG ?= andriykalashnykov/consumer:latest
+PRODUCER_IMG ?= andriykalashnykov/producer:v1.0.0
+CONSUMER_IMG ?= andriykalashnykov/consumer:v1.0.0
 CURRENTTAG:=$(shell git describe --tags --abbrev=0)
 NEWTAG ?= $(shell bash -c 'read -p "Please provide a new tag (currnet tag - ${CURRENTTAG}): " newtag; echo $$newtag')
 
@@ -47,8 +47,7 @@ image-build: build
 	docker build -t ${CONSUMER_IMG} -f consumer/Dockerfile .
 
 #image-run: @ Run a Docker image
-image-run: image-stop image-build
-	$(call setup_env)
+image-run: image-stop
 	docker compose -f "docker-compose-kafka.yaml" up
 
 #image-stop: @ Run a Docker image
@@ -78,10 +77,28 @@ k8s-undeploy:
 # upgrade outdated https://github.com/NuGet/Home/issues/4103
 # https://github.com/dotnet-outdated/dotnet-outdated
 # dotnet tool update --global dotnet-outdated-tool
+
+#upgrade: @ Upgrade outdated packages
 upgrade:
 	@cd consumer && dotnet list package --outdated | grep -o '> \S*' | grep '[^> ]*' -o | xargs --no-run-if-empty -L 1 dotnet add package
 	@cd models && dotnet list package --outdated | grep -o '> \S*' | grep '[^> ]*' -o | xargs --no-run-if-empty -L 1 dotnet add package
 	@cd producer && dotnet list package --outdated | grep -o '> \S*' | grep '[^> ]*' -o | xargs --no-run-if-empty -L 1 dotnet add package
+
+##start-minikube: @ start minikube, parametrized example: ./scripts/start-minikube.sh dapr 1 8000mb 2 40g docker
+start-minikube:
+	./scripts/start-minikube.sh
+
+##stop-minikube: @ stop minikube
+stop-minikube:
+	./scripts/stop-minikube.sh
+
+##delete-minikube: @ delete minikube
+delete-minikube: 
+	./scripts/delete-minikube.sh
+
+##list-minikube: @ list minikube profiles
+list-minikube: 
+	minikube profile list
 
 # ssh into pod
 # kubectl exec --stdin --tty -n kafka-confluent-examples kafka-confluent-go-56686b9958-ft2bh -- /bin/sh

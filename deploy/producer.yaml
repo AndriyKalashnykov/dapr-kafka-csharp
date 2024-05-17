@@ -15,12 +15,13 @@ spec:
         app: producer
       annotations:
         dapr.io/enabled: "true"
-        dapr.io/id: "producer"
+        dapr.io/app-id: "producer"
+        dapr.io/port: "3000"
         dapr.io/protocol: "grpc"
     spec:
       containers:
-      - name: producer
-        image: andriykalashnykov/producer:latest
-        ports:
-        - containerPort: 3000
-        imagePullPolicy: Always
+        - name: producer
+          image: docker.io/andriykalashnykov/producer:v1.0.0
+          ports:
+            - containerPort: 3000
+          imagePullPolicy: Always
