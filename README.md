@@ -239,9 +239,16 @@ minikube image rm andriykalashnykov/producer:v1.0.0 --profile dapr
 minikube image load andriykalashnykov/consumer:v1.0.0 --profile dapr
 minikube image load andriykalashnykov/producer:v1.0.0 --profile dapr
 
+kubectl describe replicaset producer-
+kubectl describe replicaset consumer-
+
 kubectl apply -f ./deploy/kafka-pubsub.yaml
 kubectl apply -f ./deploy/producer.yaml
 kubectl apply -f ./deploy/consumer.yaml
+
+kubectl delete -f ./deploy/kafka-pubsub.yaml
+kubectl delete -f ./deploy/consumer.yaml
+kubectl delete -f ./deploy/producer.yaml
 ```
 
 4. Check the logs from producer and consumer:

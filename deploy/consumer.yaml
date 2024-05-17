@@ -39,4 +39,4 @@ spec:
           image: docker.io/andriykalashnykov/consumer:v1.0.0
           ports:
             - containerPort: 6000
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
