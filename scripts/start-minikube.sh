@@ -59,6 +59,7 @@ if [ "${found}" == "" ]; then
   --vm-driver=${MINIKUBE_VM_DRIVER} \
   --static-ip ${MINIKUBE_STATIC_IP} \
   --insecure-registry=localhost:5000 \
+  --kubernetes-version=v1.30.0 \
   --addons=metallb \
   --addons=ingress \
   --addons=ingress-dns \

@@ -46,12 +46,12 @@ image-build: build
 	docker build -t ${PRODUCER_IMG} -f producer/Dockerfile .
 	docker build -t ${CONSUMER_IMG} -f consumer/Dockerfile .
 
-#image-run: @ Run a Docker image
-image-run: image-stop
+#local-kafka-run: @ Run a local Kafka instance
+local-kafka-run:local-kafka-stop
 	docker compose -f "docker-compose-kafka.yaml" up
 
-#image-stop: @ Run a Docker image
-image-stop:
+#local-kafka-stop: @ Stop a local Kafka instance
+local-kafka-stop:
 	docker compose -f "docker-compose-kafka.yaml" down
 
 #runp: @ Run producer
@@ -61,18 +61,6 @@ runp: build
 #runc: @ Run consumer
 runc: build
 	dotnet run --project consumer/consumer.csproj
-
-#k8s-deploy: @ Deploy to a local KinD cluster
-k8s-deploy:
-	@cat ./k8s/ns.yaml | kubectl apply -f - && \
-	cat ./k8s/deployment.yaml | kubectl apply --namespace=kafka-confluent-examples -f - && \
-	cat ./k8s/service.yaml | kubectl apply --namespace=kafka-confluent-examples -f -
-
-#k8s-undeploy: @ Undeploy from a local KinD cluster
-k8s-undeploy:
-	@kubectl delete -f ./k8s/deployment.yaml --namespace=kafka-confluent-examples --ignore-not-found=true && \
-	kubectl delete -f ./k8s/service.yaml --namespace=kafka-confluent-examples --ignore-not-found=true && \
-	kubectl delete -f ./k8s/ns.yaml --ignore-not-found=true
 
 # upgrade outdated https://github.com/NuGet/Home/issues/4103
 # https://github.com/dotnet-outdated/dotnet-outdated
@@ -84,21 +72,40 @@ upgrade:
 	@cd models && dotnet list package --outdated | grep -o '> \S*' | grep '[^> ]*' -o | xargs --no-run-if-empty -L 1 dotnet add package
 	@cd producer && dotnet list package --outdated | grep -o '> \S*' | grep '[^> ]*' -o | xargs --no-run-if-empty -L 1 dotnet add package
 
-##start-minikube: @ start minikube, parametrized example: ./scripts/start-minikube.sh dapr 1 8000mb 2 40g docker
+#start-minikube: @ start minikube, parametrized example: ./scripts/start-minikube.sh dapr 1 8000mb 2 40g docker
 start-minikube:
 	./scripts/start-minikube.sh
 
-##stop-minikube: @ stop minikube
-stop-minikube:
+#minikube-stop: @ stop minikube
+minikube-stop:
 	./scripts/stop-minikube.sh
 
-##delete-minikube: @ delete minikube
-delete-minikube: 
+#minikube-delete: @ delete minikube
+minikube-delete: 
 	./scripts/delete-minikube.sh
 
-##list-minikube: @ list minikube profiles
-list-minikube: 
+#minikube-list: @ list minikube profiles
+minikube-list: 
 	minikube profile list
+
+#https://docs.dapr.io/operations/hosting/kubernetes/kubernetes-deploy/#install-dapr-from-the-official-dapr-helm-chart-with-development-flag
+#k8s-dapr-deploy: @ Deploy DAPR to k8s
+k8s-dapr-deploy:
+	helm repo add dapr https://dapr.github.io/helm-charts/
+	helm repo 
+	helm upgrade --install dapr dapr/dapr --version=1.13 --namespace dapr-system --create-namespace --wait
+
+#k8s-workload-deploy: @ Deploy workloads to k8s
+k8s-workload-deploy:
+	@cat ./k8s/ns.yaml | kubectl apply -f - && \
+	cat ./k8s/deployment.yaml | kubectl apply --namespace=kafka-confluent-examples -f - && \
+	cat ./k8s/service.yaml | kubectl apply --namespace=kafka-confluent-examples -f -
+
+#k8s-workload-undeploy: @ Undeploy workloads form k8s
+k8s-workload-undeploy:
+	@kubectl delete -f ./k8s/deployment.yaml --namespace=kafka-confluent-examples --ignore-not-found=true && \
+	kubectl delete -f ./k8s/service.yaml --namespace=kafka-confluent-examples --ignore-not-found=true && \
+	kubectl delete -f ./k8s/ns.yaml --ignore-not-found=true
 
 # ssh into pod
 # kubectl exec --stdin --tty -n kafka-confluent-examples kafka-confluent-go-56686b9958-ft2bh -- /bin/sh
