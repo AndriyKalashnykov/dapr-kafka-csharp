@@ -254,8 +254,8 @@ kubectl delete -f ./deploy/producer.yaml
 4. Check the logs from producer and consumer:
 
 ```
-kubectl logs -f -l app=producer -c producer
-kubectl logs -f -l app=consumer -c consumer
+kubectl logs -f -l app=producer -c producer -n dapr-app
+kubectl logs -f -l app=consumer -c consumer -n dapr-app
 ```
 
 ## Build and push docker image to your docker registry

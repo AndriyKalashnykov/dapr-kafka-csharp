@@ -42,12 +42,12 @@ version:
 	@echo $(shell git describe --tags --abbrev=0)
 
 #image-build: @ Build Docker images
-image-build: build
+image-build:
 	docker build -t ${PRODUCER_IMG} -f producer/Dockerfile .
 	docker build -t ${CONSUMER_IMG} -f consumer/Dockerfile .
 
 #local-kafka-run: @ Run a local Kafka instance
-local-kafka-run:local-kafka-stop
+local-kafka-run: local-kafka-stop
 	docker compose -f "docker-compose-kafka.yaml" up
 
 #local-kafka-stop: @ Stop a local Kafka instance
@@ -91,20 +91,73 @@ minikube-list:
 #https://docs.dapr.io/operations/hosting/kubernetes/kubernetes-deploy/#install-dapr-from-the-official-dapr-helm-chart-with-development-flag
 #k8s-dapr-deploy: @ Deploy DAPR to k8s
 k8s-dapr-deploy:
-	helm repo add dapr https://dapr.github.io/helm-charts/
-	helm repo 
-	helm upgrade --install dapr dapr/dapr --version=1.13 --namespace dapr-system --create-namespace --wait
+	helm repo add dapr https://dapr.github.io/helm-charts/ && \
+	helm repo update && \
+	helm upgrade --install dapr dapr/dapr --version=1.13 --namespace dapr-system --create-namespace --wait && \
+	kubectl get pods --namespace dapr-system
+
+#k8s-dapr-undeploy: @ Undeploy DAPR from k8s
+k8s-dapr-undeploy:
+	helm uninstall dapr --namespace dapr-system
+
+#k8s-kafka-deploy: @ Deploy Kafka to k8s
+k8s-kafka-deploy:
+	helm repo add bitnami https://charts.bitnami.com/bitnami && \
+	helm repo update && \
+	helm install dapr-kafka bitnami/kafka --namespace kafka --create-namespace  \
+	  --set image.tag=latest \
+	  --set persistence.storageClass=standard \
+	  --set controller.persistence.enabled=true \
+	  --set controller.persistence.size=4Gi \
+	  --set broker.persistence.enabled=true \
+	  --set broker.persistence.size=4Gi \
+	  --set broker.logPersistence.enabled=true \
+	  --set broker.logPersistence.size=4Gi \
+	  --set metrics.kafka.enabled=true \
+	  --set metrics.jmx.enabled=true \
+	  --set serviceAccount.create=true \
+	  --set rbac.create=true \
+	  --set service.type=ClusterIP \
+	  --set kraft.enabled=true \
+	  --set controller.replicaCount=1 \
+	  --set zookeeper.enabled=false \
+	  --set zookeeper.persistence.enabled=false \
+	  --set zookeeper.replicaCount=0 \
+	  --set broker.replicaCount=1 \
+	  --set replicaCount=1 \
+	  --set deleteTopicEnable=true \
+	  --set auth.clientProtocol=sasl \
+	  --set authorizerClassName="kafka.security.authorizer.AclAuthorizer" \
+	  --set allowPlaintextListener=true \
+	  --set advertisedListeners=PLAINTEXT://:9092 \
+	  --set listenerSecurityProtocolMap=PLAINTEXT:PLAINTEXT \
+	  --wait
+
+#k8s-kafka-undeploy: @ Undeploy Kafka from k8s
+k8s-kafka-undeploy:
+	helm uninstall dapr-kafka --namespace kafka
+
+#k8s-image-load: @ Image load to k8s
+k8s-image-load: image-build
+	@minikube image rm ${CONSUMER_IMG} --profile dapr  && \
+    minikube image rm ${PRODUCER_IMG} --profile dapr  && \
+    minikube image load ${CONSUMER_IMG} --profile dapr  && \
+    minikube image load ${PRODUCER_IMG} --profile dapr  && \
+    minikube image ls -p dapr | grep andriykalashnykov/
 
 #k8s-workload-deploy: @ Deploy workloads to k8s
 k8s-workload-deploy:
 	@cat ./k8s/ns.yaml | kubectl apply -f - && \
-	cat ./k8s/deployment.yaml | kubectl apply --namespace=kafka-confluent-examples -f - && \
-	cat ./k8s/service.yaml | kubectl apply --namespace=kafka-confluent-examples -f -
+	cat ./k8s/kafka-pubsub.yaml | kubectl apply --namespace=kafka -f - && \
+	cat ./k8s/consumer.yaml | kubectl apply --namespace=dapr-app -f - && \
+	cat ./k8s/producer.yaml | kubectl apply --namespace=dapr-app -f - && \
+	kubectl logs -f -l app=producer -c producer -n dapr-app
 
 #k8s-workload-undeploy: @ Undeploy workloads form k8s
 k8s-workload-undeploy:
-	@kubectl delete -f ./k8s/deployment.yaml --namespace=kafka-confluent-examples --ignore-not-found=true && \
-	kubectl delete -f ./k8s/service.yaml --namespace=kafka-confluent-examples --ignore-not-found=true && \
+	@kubectl delete -f ./k8s/producer.yaml --namespace=dapr-app --ignore-not-found=true && \
+	kubectl delete -f ./k8s/consumer.yaml --namespace=dapr-app --ignore-not-found=true && \
+	kubectl delete -f ./k8s/kafka-pubsub.yaml --namespace=kafka --ignore-not-found=true && \
 	kubectl delete -f ./k8s/ns.yaml --ignore-not-found=true
 
 # ssh into pod

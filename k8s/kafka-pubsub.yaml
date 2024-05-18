@@ -2,7 +2,7 @@ apiVersion: dapr.io/v1alpha1
 kind: Component
 metadata:
   name: sampletopic
-  namespace: default
+  namespace: kafka
 spec:
   type: pubsub.kafka
   version: v1
