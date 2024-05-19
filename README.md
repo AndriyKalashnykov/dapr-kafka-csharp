@@ -127,15 +127,7 @@ to [Dapr in Kubernetes environment](https://github.com/dapr/docs/blob/master/get
 
 ### Setting up a Kafka in Kubernetes
 
-1. Install Kafka via [incubator/kafka helm chart](https://github.com/helm/charts/tree/master/incubator/kafka)
-
-```
-helm repo add incubator http://storage.googleapis.com/kubernetes-charts-incubator
-helm repo update
-kubectl create ns kafka
-helm repo add azure-marketplace https://marketplace.azurecr.io/helm/v1/repo
-helm install dapr-kafka azure-marketplace/kafka -n kafka -f ./kafka-non-persistence.yaml
-```
+1. Install Kafka
 
 ```bash
 helm repo add bitnami https://charts.bitnami.com/bitnami
@@ -149,16 +141,17 @@ helm install dapr-kafka bitnami/kafka --namespace kafka --create-namespace  \
   --set broker.persistence.size=4Gi \
   --set broker.logPersistence.enabled=true \
   --set broker.logPersistence.size=4Gi \
-  --set metrics.kafka.enabled=true \
-  --set metrics.jmx.enabled=true \
+  --set metrics.kafka.enabled=false \
+  --set metrics.jmx.enabled=false \
   --set serviceAccount.create=true \
   --set rbac.create=true \
   --set service.type=ClusterIP \
-  --set kraft.enabled=true \
+  --set kraft.enabled=false \
   --set controller.replicaCount=1 \
+  --set zookeeper.metrics.enabled=false  \
   --set zookeeper.enabled=false \
   --set zookeeper.persistence.enabled=false \
-  --set zookeeper.replicaCount=0 \
+  --set zookeeper.replicaCount=1 \
   --set broker.replicaCount=1 \
   --set replicaCount=1 \
   --set deleteTopicEnable=true \
@@ -200,7 +193,7 @@ To create a pod that you can use as a Kafka client run the following commands:
     PRODUCER:
         kafka-console-producer.sh \
             --producer.config /tmp/client.properties \
-            --broker-list dapr-kafka-controller-0.dapr-kafka-controller-headless.kafka.svc.cluster.local:9092,dapr-kafka-broker-0.dapr-kafka-broker-headless.kafka.svc.cluster.local:9092 \
+            --broker-list dapr-kafka-broker-0.dapr-kafka-broker-headless.kafka.svc.cluster.local:9092 \
             --topic test
 
     CONSUMER:

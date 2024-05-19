@@ -1,8 +1,8 @@
+# https://github.com/Azure/azure-functions-dapr-extension/blob/d2114f7d9be5c6452d246a59487d59600c3b7b85/samples/dotnet-azurefunction/deploy/kafka-pubsub.yaml#L4
 apiVersion: dapr.io/v1alpha1
 kind: Component
 metadata:
   name: sampletopic
-  namespace: kafka
 spec:
   type: pubsub.kafka
   version: v1
@@ -20,11 +20,12 @@ spec:
     - name: "saslUsername"
       value: "user1"
     - name: saslPassword
+      value: "IbhSLnrZR9"
       # Required if authType is `password`. Make sure kafka is installed in the default namespace, otherwise secretKeyRef will not work.
-      # You can also provide directly password value instead of secretKeyRef. Read the kafka password with this command: `kubectl get secret dapr-kafka-user-passwords -o jsonpath='{.data.system-user-password}' | base64 --decode` Not recommended for production.
-      secretKeyRef:
-        name: dapr-kafka-user-passwords
-        key: client-passwords
+      # You can also provide directly password value instead of secretKeyRef. Read the kafka password with this command: `kubectl get secret -n kafka dapr-kafka-user-passwords -o jsonpath='{.data.system-user-password}' | base64 --decode` Not recommended for production.
+#      secretKeyRef:
+#        name: dapr-kafka-user-passwords
+#        key: system-user-password
     - name: maxMessageBytes
       value: 1024
     - name: consumeRetryInterval
