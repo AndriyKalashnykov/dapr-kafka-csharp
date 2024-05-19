@@ -56,9 +56,9 @@ namespace Dapr.Examples.Pubsub.Consumer
             
             Dapr.TopicOptions topicOptions = new()
             {
-                Match = "event.type==\"file.uploaded\"",
-                PubsubName = "dapr-pubsub",
-                Name = "mytopic"
+                Match = "event.type==\"com.dapr.event.sent\"",
+                PubsubName = "sampletopic",
+                Name = "sampletopic"
             };
             
             app.UseEndpoints(endpoints =>

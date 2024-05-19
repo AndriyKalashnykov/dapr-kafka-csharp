@@ -6,27 +6,30 @@ metadata:
 spec:
   type: pubsub.kafka
   version: v1
+  initTimeout: 30s
   metadata:
     # Kafka broker connection setting
     - name: brokers
       # Comma separated list of kafka brokers
-      value: "dapr-kafka.kafka.svc.cluster.local:9092"
-    - name: clientID # Optional. Used as client tracing ID by Kafka brokers.
-      value: "my-dapr-app-id"
+      value: "dapr-kafka-controller-0.dapr-kafka-controller-headless.kafka.svc.cluster.local:9092,dapr-kafka-controller-1.dapr-kafka-controller-headless.kafka.svc.cluster.local:9092,dapr-kafka-controller-2.dapr-kafka-controller-headless.kafka.svc.cluster.local:9092"
     - name: authType # Required.
       value: "password"
     - name: disableTls # Optional. Disable TLS. This is not safe for production!! You should read the `Mutual TLS` section for how to use TLS.
       value: "true"
+    - name: saslMechanism
+      value: "PLAIN"
     - name: "saslUsername"
-      value: "user1"
+      value: "admin"
     - name: saslPassword
-      value: "IbhSLnrZR9"
+      value: "kafka-admin-password"
+    - name: skipVerify
+      value: "true"  
       # Required if authType is `password`. Make sure kafka is installed in the default namespace, otherwise secretKeyRef will not work.
       # You can also provide directly password value instead of secretKeyRef. Read the kafka password with this command: `kubectl get secret -n kafka dapr-kafka-user-passwords -o jsonpath='{.data.system-user-password}' | base64 --decode` Not recommended for production.
 #      secretKeyRef:
 #        name: dapr-kafka-user-passwords
 #        key: system-user-password
     - name: maxMessageBytes
-      value: 1024
+      value: 1024000
     - name: consumeRetryInterval
       value: 200ms

@@ -16,8 +16,7 @@ spec:
       annotations:
         dapr.io/enabled: "true"
         dapr.io/app-id: "producer"
-        dapr.io/port: "3000"
-        dapr.io/protocol: "grpc"
+        dapr.io/app-port: "3000"
     spec:
       containers:
         - name: producer

@@ -1,0 +1,34 @@
+sasl:
+  client:
+    users:
+      - "{{admin_user}}"
+      - "{{kafka_user}}"
+    passwords:
+      - "{{kafka_admin_password}}"
+      - "{{kafka_user_password}}"
+serviceBindings:
+  enabled: true
+extraConfig: |-
+  auto.create.topics.enable=true
+  authorizer.class.name=org.apache.kafka.metadata.authorizer.StandardAuthorizer
+  super.users=User:controller_user;User:{{admin_user}}
+  allow.everyone.if.no.acl.found=true
+  offsets.topic.replication.factor=3
+  transaction.state.log.replication.factor=3
+  transaction.state.log.min.isr=2
+  default.replication.factor=3
+  min.insync.replicas=2
+externalAccess:
+  enabled: true
+  controller:
+    service:
+      loadBalancerNames:
+        - s1
+        - s2
+        - s3
+  broker:
+    service:
+      loadBalancerNames:
+        - b1
+        - b2
+        - b3

@@ -72,19 +72,19 @@ upgrade:
 	@cd models && dotnet list package --outdated | grep -o '> \S*' | grep '[^> ]*' -o | xargs --no-run-if-empty -L 1 dotnet add package
 	@cd producer && dotnet list package --outdated | grep -o '> \S*' | grep '[^> ]*' -o | xargs --no-run-if-empty -L 1 dotnet add package
 
-#start-minikube: @ start minikube, parametrized example: ./scripts/start-minikube.sh dapr 1 8000mb 2 40g docker
-start-minikube:
+#minikube-start: @ Start Minikube, parametrized example: ./scripts/start-minikube.sh dapr 1 8000mb 2 40g docker
+minikube-start:
 	./scripts/start-minikube.sh
 
-#minikube-stop: @ stop minikube
+#minikube-stop: @ Stop Minikube
 minikube-stop:
 	./scripts/stop-minikube.sh
 
-#minikube-delete: @ delete minikube
+#minikube-delete: @ Delete Minikube
 minikube-delete: 
 	./scripts/delete-minikube.sh
 
-#minikube-list: @ list minikube profiles
+#minikube-list: @ List Minikube profiles
 minikube-list: 
 	minikube profile list
 
@@ -102,47 +102,11 @@ k8s-dapr-undeploy:
 
 #k8s-kafka-deploy: @ Deploy Kafka to k8s
 k8s-kafka-deploy:
-	helm repo add bitnami https://charts.bitnami.com/bitnami && \
-	helm repo update && \
-	helm install dapr-kafka bitnami/kafka --namespace kafka --create-namespace  \
-	  --set image.tag=latest \
-	  --set persistence.storageClass=standard \
-	  --set controller.persistence.enabled=true \
-	  --set controller.persistence.size=4Gi \
-	  --set broker.persistence.enabled=true \
-	  --set broker.persistence.size=4Gi \
-	  --set broker.logPersistence.enabled=true \
-	  --set broker.logPersistence.size=4Gi \
-	  --set metrics.kafka.enabled=false \
-	  --set metrics.jmx.enabled=false \
-	  --set serviceAccount.create=true \
-	  --set rbac.create=true \
-	  --set service.type=ClusterIP \
-	  --set kraft.enabled=true \
-	  --set controller.replicaCount=1 \
-	  --set zookeeper.enabled=false  \
-	  --set zookeeper.verifyHostname=false  \
-	  --set zookeeper.metrics.enabled=false  \
-	  --set zookeeper.persistence.enabled=false \
-	  --set zookeeper.replicaCount=0 \
-	  --set broker.replicaCount=1 \
-	  --set replicaCount=1 \
-	  --set deleteTopicEnable=true \
-	  --set provisioning.enabled=true \
-	  --set provisioning.topics[0].name="sampletopic" \
-      --set provisioning.topics[0].partitions=1 \
-      --set provisioning.topics[0].replicationFactor=1 \
-      --set provisioning.topics[0].config.max.message.bytes=128000 \
-	  --set auth.clientProtocol=sasl \
-	  --set authorizerClassName="kafka.security.authorizer.AclAuthorizer" \
-	  --set allowPlaintextListener=true \
-	  --set advertisedListeners=PLAINTEXT://:9092 \
-	  --set listenerSecurityProtocolMap=PLAINTEXT:PLAINTEXT \
-	  --wait
+	./scripts/kafka.sh install
 
 #k8s-kafka-undeploy: @ Undeploy Kafka from k8s
 k8s-kafka-undeploy:
-	helm uninstall dapr-kafka --namespace kafka
+	./scripts/kafka.sh delete
 
 #k8s-image-load: @ Image load to k8s
 k8s-image-load: image-build
@@ -153,14 +117,16 @@ k8s-image-load: image-build
     minikube image ls -p dapr | grep andriykalashnykov/
 
 #k8s-workload-deploy: @ Deploy workloads to k8s
-k8s-workload-deploy:
+k8s-workload-deploy: k8s-image-load
 	@cat ./k8s/ns.yaml | kubectl apply -f - && \
 	cat ./k8s/kafka-pubsub.yaml | kubectl apply --namespace=dapr-app --wait=true -f - && \
 	cat ./k8s/producer.yaml | kubectl apply --namespace=dapr-app --wait=true -f - && \
-	kubectl wait --namespace dapr-app --for=condition=ready pod --selector=app=producer --timeout=60s && \
 	cat ./k8s/consumer.yaml | kubectl apply --namespace=dapr-app --wait=true -f - && \
 	kubectl wait --namespace dapr-app --for=condition=ready pod --selector=app=consumer --timeout=60s && \
-	kubectl logs -f -l app=producer -c producer -n dapr-app
+	kubectl logs -f -l app=consumer -c consumer -n dapr-app
+#	kubectl logs -f -l app=producer -c producer -n dapr-app
+#	kubectl wait --namespace dapr-app --for=condition=ready pod --selector=app=producer --timeout=60s && \
+
 
 #k8s-workload-undeploy: @ Undeploy workloads form k8s
 k8s-workload-undeploy:

@@ -130,37 +130,7 @@ to [Dapr in Kubernetes environment](https://github.com/dapr/docs/blob/master/get
 1. Install Kafka
 
 ```bash
-helm repo add bitnami https://charts.bitnami.com/bitnami
-helm repo update
-helm install dapr-kafka bitnami/kafka --namespace kafka --create-namespace  \
-  --set image.tag=latest \
-  --set persistence.storageClass=standard \
-  --set controller.persistence.enabled=true \
-  --set controller.persistence.size=4Gi \
-  --set broker.persistence.enabled=true \
-  --set broker.persistence.size=4Gi \
-  --set broker.logPersistence.enabled=true \
-  --set broker.logPersistence.size=4Gi \
-  --set metrics.kafka.enabled=false \
-  --set metrics.jmx.enabled=false \
-  --set serviceAccount.create=true \
-  --set rbac.create=true \
-  --set service.type=ClusterIP \
-  --set kraft.enabled=false \
-  --set controller.replicaCount=1 \
-  --set zookeeper.metrics.enabled=false  \
-  --set zookeeper.enabled=false \
-  --set zookeeper.persistence.enabled=false \
-  --set zookeeper.replicaCount=1 \
-  --set broker.replicaCount=1 \
-  --set replicaCount=1 \
-  --set deleteTopicEnable=true \
-  --set auth.clientProtocol=sasl \
-  --set authorizerClassName="kafka.security.authorizer.AclAuthorizer" \
-  --set allowPlaintextListener=true \
-  --set advertisedListeners=PLAINTEXT://:9092 \
-  --set listenerSecurityProtocolMap=PLAINTEXT:PLAINTEXT \
-  --wait
+make k8s-kafka-deploy
 ```
 
 ```text
@@ -193,15 +163,16 @@ To create a pod that you can use as a Kafka client run the following commands:
     PRODUCER:
         kafka-console-producer.sh \
             --producer.config /tmp/client.properties \
-            --broker-list dapr-kafka-broker-0.dapr-kafka-broker-headless.kafka.svc.cluster.local:9092 \
-            --topic test
+            --broker-list dapr-kafka-controller-0.dapr-kafka-controller-headless.kafka.svc.cluster.local:9092,dapr-kafka-controller-1.dapr-kafka-controller-headless.kafka.svc.cluster.local:9092,dapr-kafka-controller-2.dapr-kafka-controller-headless.kafka.svc.cluster.local:9092 \
+            --topic sampletopic
 
     CONSUMER:
         kafka-console-consumer.sh \
             --consumer.config /tmp/client.properties \
             --bootstrap-server dapr-kafka.kafka.svc.cluster.local:9092 \
-            --topic test \
+            --topic sampletopic \
             --from-beginning
+
 ```
 
 2. Wait until kafka pods are running
@@ -219,29 +190,11 @@ dapr-kafka-zookeeper-2   1/1     Running   0          109s
 
 ```
 make image-build
-docker image save -o consumer-v1.0.0.tar andriykalashnykov/consumer:v1.0.0
-minikube image load consumer-v1.0.0.tar --profile dapr
+make k8s-image-load
+make k8s-workload-deploy
 
-docker image save -o producer-v1.0.0.tar andriykalashnykov/producer:v1.0.0
-minikube image load producer-v1.0.0.tar --profile dapr
-
-minikube image ls -p dapr | grep andriykalashnykov/
-
-minikube image rm andriykalashnykov/consumer:v1.0.0 --profile dapr
-minikube image rm andriykalashnykov/producer:v1.0.0 --profile dapr
-minikube image load andriykalashnykov/consumer:v1.0.0 --profile dapr
-minikube image load andriykalashnykov/producer:v1.0.0 --profile dapr
-
-kubectl describe replicaset producer-
-kubectl describe replicaset consumer-
-
-kubectl apply -f ./deploy/kafka-pubsub.yaml
-kubectl apply -f ./deploy/producer.yaml
-kubectl apply -f ./deploy/consumer.yaml
-
-kubectl delete -f ./deploy/kafka-pubsub.yaml
-kubectl delete -f ./deploy/consumer.yaml
-kubectl delete -f ./deploy/producer.yaml
+kubectl describe replicaset producer-xxx
+kubectl describe replicaset consumer-xxx
 ```
 
 4. Check the logs from producer and consumer:
@@ -281,19 +234,22 @@ docker push [docker_registry]/producer:latest
 1. Stop the applications
 
 ```
-kubectl delete -f ./deploy/kafka-pubsub.yaml
-kubectl delete -f ./deploy/consumer.yaml
-kubectl delete -f ./deploy/producer.yaml
+make k8s-workload-undeploy
 ```
 
-2. Uninstall Kafka
+1. Uninstall Kafka
 
 ```
-helm uninstall dapr-kafka -n kafka
+make k8s-kafka-undeploy
 ```
 
-3. Uninstall Dapr
+2. Uninstall Dapr
 
 ```
 dapr uninstall -k
 ```
+
+
+### References
+
+[Practical Microservices with Dapr and .NET, published by Packt](https://github.com/PacktPublishing/Practical-Microservices-with-Dapr-and-.NET/tree/main)

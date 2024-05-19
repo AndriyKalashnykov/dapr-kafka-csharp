@@ -25,15 +25,23 @@ namespace Dapr.Examples.Pubsub.Producer
         {
             var daprClientBuilder = new DaprClientBuilder();
             var client = daprClientBuilder.Build();
+            
+            string PUBSUB_NAME = "sampletopic";
+            string TOPIC_NAME = "sampletopic";
 
             while (true)
             {
-                var message = GenerateNewMessage();
-                Console.WriteLine("Publishing: {0}", message);
+                // var message = GenerateNewMessage();
+                // Console.WriteLine("Publishing: {0}", message.Message);
+                
+                Random random = new Random();
+                int orderId = random.Next(1,1000);
+                var eventData = new { Id = orderId, Amount = orderId, };
+                Console.WriteLine("Published data: " + orderId);
 
                 try
                 {
-                    await client.PublishEventAsync("sampletopic", message.Message,1, cancellationToken);
+                    await client.PublishEventAsync(PUBSUB_NAME, TOPIC_NAME, eventData, cancellationToken);
                 }
                 catch (Exception ex)
                 {
