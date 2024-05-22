@@ -225,9 +225,9 @@ docker push [docker_registry]/producer:latest
 4. Update image names
 
 * Update imagename to [docker_registry]/consumer:latest
-  in [deploy/consumer.yaml](https://github.com/andriykalashnykov/dapr-kafka-csharp/blob/master/deploy/consumer.yaml#L39)
+  in [k8s/consumer.yaml](https://github.com/andriykalashnykov/dapr-kafka-csharp/blob/master/k8s/consumer.yaml#L39)
 * Update imagename to [docker_registry]/producer:latest
-  in [deploy/producer.yaml](https://github.com/andriykalashnykov/dapr-kafka-csharp/blob/master/deploy/producer.yaml#L23)
+  in [k8s/producer.yaml](https://github.com/andriykalashnykov/dapr-kafka-csharp/blob/master/k8s/producer.yaml#L23)
 
 ## Cleanup
 
