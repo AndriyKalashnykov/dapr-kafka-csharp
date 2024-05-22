@@ -72,17 +72,17 @@ upgrade:
 	@cd models && dotnet list package --outdated | grep -o '> \S*' | grep '[^> ]*' -o | xargs --no-run-if-empty -L 1 dotnet add package
 	@cd producer && dotnet list package --outdated | grep -o '> \S*' | grep '[^> ]*' -o | xargs --no-run-if-empty -L 1 dotnet add package
 
-#minikube-start: @ Start Minikube, parametrized example: ./scripts/start-minikube.sh dapr 1 8000mb 2 40g docker
+#minikube-start: @ Start Minikube, parametrized example: ./scripts/minikube.sh start dapr 1 8000mb 2 40g docker 192.168.200.200
 minikube-start:
-	./scripts/start-minikube.sh
+	./scripts/minikube.sh start
 
 #minikube-stop: @ Stop Minikube
 minikube-stop:
-	./scripts/stop-minikube.sh
+	./scripts/minikube.sh stop
 
 #minikube-delete: @ Delete Minikube
 minikube-delete: 
-	./scripts/delete-minikube.sh
+	./scripts/minikube.sh delete
 
 #minikube-list: @ List Minikube profiles
 minikube-list: 
@@ -122,10 +122,10 @@ k8s-workload-deploy: k8s-image-load
 	cat ./k8s/kafka-pubsub.yaml | kubectl apply --namespace=dapr-app --wait=true -f - && \
 	cat ./k8s/producer.yaml | kubectl apply --namespace=dapr-app --wait=true -f - && \
 	cat ./k8s/consumer.yaml | kubectl apply --namespace=dapr-app --wait=true -f - && \
-	kubectl wait --namespace dapr-app --for=condition=ready pod --selector=app=consumer --timeout=60s && \
+	kubectl wait --namespace dapr-app --for=condition=ready pod --selector=app=consumer --timeout=120s && \
 	kubectl logs -f -l app=consumer -c consumer -n dapr-app
 #	kubectl logs -f -l app=producer -c producer -n dapr-app
-#	kubectl wait --namespace dapr-app --for=condition=ready pod --selector=app=producer --timeout=60s && \
+#	kubectl wait --namespace dapr-app --for=condition=ready pod --selector=app=producer --timeout=120s && \
 
 
 #k8s-workload-undeploy: @ Undeploy workloads form k8s

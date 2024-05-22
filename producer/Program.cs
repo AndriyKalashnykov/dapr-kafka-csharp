@@ -31,13 +31,14 @@ namespace Dapr.Examples.Pubsub.Producer
 
             while (true)
             {
-                // var message = GenerateNewMessage();
-                // Console.WriteLine("Publishing: {0}", message.Message);
+                var message = GenerateNewMessage();
+                Console.WriteLine("Publishing data: {0}", message.Message);
+                var eventData = message;
                 
-                Random random = new Random();
-                int orderId = random.Next(1,1000);
-                var eventData = new { Id = orderId, Amount = orderId, };
-                Console.WriteLine("Published data: " + orderId);
+                // Random random = new Random();
+                // int orderId = random.Next(1,1000);
+                // var eventData = new { Id = orderId, Amount = orderId, };
+                // Console.WriteLine("Published data: " + orderId);
 
                 try
                 {
