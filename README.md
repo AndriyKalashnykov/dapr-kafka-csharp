@@ -35,6 +35,12 @@ sudo apt-get install -y dotnet-runtime-8.0
 dotnet workload update
 source ~/.bashrc
 dotnet sdk check
+
+# Register the Ubuntu .NET backports package repository to support 7.0, 6.0 on Ubuntu 24.04
+# sudo add-apt-repository --remove ppa:dotnet/backports
+# sudo apt-get install -y dotnet-sdk-7.0
+# sudo apt-get install -y aspnetcore-runtime-7.0
+# sudo apt-get install -y dotnet-runtime-7.0
 ```
 
 4. Clone the sample repo
