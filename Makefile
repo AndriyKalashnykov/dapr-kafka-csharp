@@ -46,13 +46,14 @@ image-build:
 	docker build -t ${PRODUCER_IMG} -f producer/Dockerfile .
 	docker build -t ${CONSUMER_IMG} -f consumer/Dockerfile .
 
+# https://github.com/jaehyeon-kim/kafka-pocs/tree/main/kafka-dev-with-docker/part-09
 #local-kafka-run: @ Run a local Kafka instance
 local-kafka-run: local-kafka-stop
-	docker compose -f "docker-compose-kafka.yaml" up
+	docker compose -f "docker-compose.yaml" up
 
 #local-kafka-stop: @ Stop a local Kafka instance
 local-kafka-stop:
-	docker compose -f "docker-compose-kafka.yaml" down
+	docker compose -f "docker-compose.yaml" down
 
 #runp: @ Run producer
 runp: build
