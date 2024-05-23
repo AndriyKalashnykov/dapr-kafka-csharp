@@ -44,6 +44,7 @@ if [[ $SCRIPT_ACTION == "install"  ]]; then
   
   cat  $TPM_VALUES_NAME
   
+#  --set tls.endpointIdentificationAlgorithm=""
   helm upgrade --install -f $TPM_VALUES_NAME $KAFKA_CLUSTER_NAME bitnami/kafka --namespace $KAFKA_NAMESPACE --create-namespace  \
     --timeout 10m \
     --version $KAFKA_VERSION \
