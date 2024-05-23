@@ -46,6 +46,8 @@ image-build:
 	docker build -t ${PRODUCER_IMG} -f producer/Dockerfile .
 	docker build -t ${CONSUMER_IMG} -f consumer/Dockerfile .
 
+# Kafka in Docker
+# https://jaehyeon.me/blog/2023-07-06-kafka-development-with-docker-part-9/
 # https://github.com/jaehyeon-kim/kafka-pocs/tree/main/kafka-dev-with-docker/part-09
 #local-kafka-run: @ Run a local Kafka instance
 local-kafka-run: local-kafka-stop
