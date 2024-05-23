@@ -82,7 +82,7 @@ if [[ $SCRIPT_ACTION == "install"  ]]; then
   
   kubectl run $KAFKA_CLUSTER_NAME-client --restart='Never' --image docker.io/bitnami/kafka:latest --namespace $KAFKA_NAMESPACE --command -- sleep infinity
   kubectl wait --for=condition=ready pod/$KAFKA_CLUSTER_NAME-client -n $KAFKA_NAMESPACE
-  kubectl cp --namespace kafka $SCRIPT_PARENT_DIR/kafka/client.properties dapr-kafka-client:/tmp/client.properties
+  kubectl cp --namespace $KAFKA_NAMESPACE $SCRIPT_PARENT_DIR/kafka/client.properties $KAFKA_CLUSTER_NAME-client:/tmp/client.properties
   
   rm $TPM_VALUES_NAME
   

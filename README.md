@@ -178,7 +178,6 @@ To create a pod that you can use as a Kafka client run the following commands:
             --bootstrap-server dapr-kafka.kafka.svc.cluster.local:9092 \
             --topic sampletopic \
             --from-beginning
-
 ```
 
 2. Wait until kafka pods are running
