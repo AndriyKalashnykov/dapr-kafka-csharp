@@ -1,4 +1,4 @@
-# Producer and Consumer examples using Dapr Pubsub
+# Producer and Consumer with Dapr PubSub
 
 ## Pre-requisites
 
