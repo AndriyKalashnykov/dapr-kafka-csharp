@@ -43,8 +43,8 @@ version:
 
 #image-build: @ Build Docker images
 image-build:
-	docker build -t ${PRODUCER_IMG} -f producer/Dockerfile .
-	docker build -t ${CONSUMER_IMG} -f consumer/Dockerfile .
+	docker buildx build -t ${PRODUCER_IMG} -f producer/Dockerfile .
+	docker buildx build -t ${CONSUMER_IMG} -f consumer/Dockerfile .
 
 # Kafka in Docker
 # https://jaehyeon.me/blog/2023-07-06-kafka-development-with-docker-part-9/

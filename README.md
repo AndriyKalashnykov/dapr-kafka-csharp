@@ -4,44 +4,31 @@
 
 1. [Install Docker](https://www.docker.com/products/docker-desktop)
 2. [Install Dapr CLI](https://docs.dapr.io/getting-started/install-dapr-cli/)
-3. [Install .Net Core SDK 8.0](https://dotnet.microsoft.com/download)
+3. .Net 8
+
+### Linux manual
+
+Download [.Net 8.0.x](https://dotnet.microsoft.com/en-us/download/dotnet/8.0) and run follwing commands:
 
 ```bash
-dotnet --list-sdks
-dotnet --list-runtimes
-
-sudo apt-get install -y dotnet-sdk-8.0
-sudo apt-get install -y dotnet-host 
-sudo apt-get install -y aspnetcore-runtime-8.0
-sudo apt-get install -y dotnet-runtime-8.0
-dotnet sdk check
-dotnet --list-sdks
-dotnet --list-runtimes
-
-
-sudo apt remove dotnet-sdk* dotnet-host* dotnet* aspnetcore* netstandard*
-sudo apt remove aspnetcore*
-sudo apt remove netstandard*
-sudo apt remove dotnet-host*
-sudo apt purge dotnet-sdk* dotnet-host* dotnet* aspnetcore* netstandard*
-sudo rm -f /etc/apt/sources.list.d/mssql-release.list
-sudo rm /etc/apt/sources.list.d/microsoft-prod.list
-sudo rm /etc/apt/sources.list.d/microsoft-prod.list.save
-sudo apt update
-sudo apt-get install -y dotnet-sdk-8.0
-sudo apt-get install -y dotnet-host 
-sudo apt-get install -y aspnetcore-runtime-8.0
-sudo apt-get install -y dotnet-runtime-8.0
-dotnet workload update
-source ~/.bashrc
-dotnet sdk check
-
-# Register the Ubuntu .NET backports package repository to support 7.0, 6.0 on Ubuntu 24.04
-# sudo add-apt-repository --remove ppa:dotnet/backports
-# sudo apt-get install -y dotnet-sdk-7.0
-# sudo apt-get install -y aspnetcore-runtime-7.0
-# sudo apt-get install -y dotnet-runtime-7.0
+DOTNET_FILE=/home/$USER//Downloads/dotnet-sdk-8.0.403-linux-x64.tar.gz
+export DOTNET_ROOT=/home/$USER/.dotnet
+mkdir -p "$DOTNET_ROOT" && tar zxf "$DOTNET_FILE" -C "$DOTNET_ROOT"
+export PATH=$PATH:$DOTNET_ROOT:$DOTNET_ROOT/tools
 ```
+
+### Linux package manager
+
+Run the following commands:
+
+  ```bash
+  sudo apt-get update && sudo apt-get install -y dotnet-sdk-8.0
+  sudo apt-get install -y dotnet-runtime-8.0
+  sudo apt-get update && sudo apt-get install -y aspnetcore-runtime-8.0
+  ```
+
+and update [global.json](./global.json) to `"version": "8.0.0"`
+
 
 4. Clone the sample repo
 
