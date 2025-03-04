@@ -7,7 +7,7 @@
     <ItemGroup>
         <ProjectReference Include="..\models\models.csproj" />
         <PackageReference Include="Dapr.AspNetCore" Version="1.15.0" />
-        <PackageReference Include="Dapr.Client" Version="1.15.0" />
+        <PackageReference Include="Dapr.Client" Version="1.15.1" />
     </ItemGroup>
 
 </Project>
