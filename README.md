@@ -1,4 +1,6 @@
 [![Hits](https://hits.sh/github.com/AndriyKalashnykov/dapr-kafka-csharp.svg?view=today-total&style=plastic)](https://hits.sh/github.com/AndriyKalashnykov/dapr-kafka-csharp/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](https://opensource.org/licenses/MIT)
+[![Renovate enabled](https://img.shields.io/badge/renovate-enabled-brightgreen.svg)](https://app.renovatebot.com/dashboard#github/AndriyKalashnykov/dapr-kafka-csharp)
 # Producer and Consumer with Dapr PubSub
 
 ## Pre-requisites
