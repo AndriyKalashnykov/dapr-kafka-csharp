@@ -1,3 +1,4 @@
+[![Hits](https://hits.sh/github.com/AndriyKalashnykov/dapr-kafka-csharp.svg?view=today-total&style=plastic)](https://hits.sh/github.com/AndriyKalashnykov/dapr-kafka-csharp/)
 # Producer and Consumer with Dapr PubSub
 
 ## Pre-requisites
