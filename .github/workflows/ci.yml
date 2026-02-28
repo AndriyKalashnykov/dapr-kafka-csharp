@@ -18,7 +18,7 @@ jobs:
       - uses: actions/setup-dotnet@baa11fbfe1d6520db94683bd5c7a3818018e4309 # v5
         with:
           dotnet-version: |
-            8.x
+            10.x
 
       - name: Build
         run: make build image-build

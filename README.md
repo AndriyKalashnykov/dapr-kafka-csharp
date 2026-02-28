@@ -7,14 +7,14 @@
 
 1. [Install Docker](https://www.docker.com/products/docker-desktop)
 2. [Install Dapr CLI](https://docs.dapr.io/getting-started/install-dapr-cli/)
-3. .Net 8
+3. .Net 10
 
 ### Linux manual
 
-Download [.Net 8.0.x](https://dotnet.microsoft.com/en-us/download/dotnet/8.0) and run follwing commands:
+Download [.Net 10.0.x](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) and run follwing commands:
 
 ```bash
-DOTNET_FILE=/home/$USER//Downloads/dotnet-sdk-8.0.403-linux-x64.tar.gz
+DOTNET_FILE=/home/$USER//Downloads/dotnet-sdk-10.0.103-linux-x64.tar.gz
 export DOTNET_ROOT=/home/$USER/.dotnet
 mkdir -p "$DOTNET_ROOT" && tar zxf "$DOTNET_FILE" -C "$DOTNET_ROOT"
 export PATH=$PATH:$DOTNET_ROOT:$DOTNET_ROOT/tools
@@ -25,12 +25,12 @@ export PATH=$PATH:$DOTNET_ROOT:$DOTNET_ROOT/tools
 Run the following commands:
 
   ```bash
-  sudo apt-get update && sudo apt-get install -y dotnet-sdk-8.0
-  sudo apt-get install -y dotnet-runtime-8.0
-  sudo apt-get update && sudo apt-get install -y aspnetcore-runtime-8.0
+  sudo apt-get update && sudo apt-get install -y dotnet-sdk-10.0
+  sudo apt-get install -y dotnet-runtime-10.0
+  sudo apt-get update && sudo apt-get install -y aspnetcore-runtime-10.0
   ```
 
-and update [global.json](./global.json) to `"version": "8.0.0"`
+and update [global.json](./global.json) to `"version": "10.0.0"`
 
 
 4. Clone the sample repo

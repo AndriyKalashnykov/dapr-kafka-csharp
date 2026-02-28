@@ -17,6 +17,9 @@
   "labels": [
     "dependencies"
   ],
+  "automerge": true,
+  "automergeType": "pr",
+  "platformAutomerge": true,
   "packageRules": [
     {
       "groupName": "ApplicationInsights",

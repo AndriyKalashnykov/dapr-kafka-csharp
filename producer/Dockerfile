@@ -1,8 +1,8 @@
 # https://mcr.microsoft.com/en-us/product/dotnet/runtime/tags
-FROM mcr.microsoft.com/dotnet/runtime:8.0-cbl-mariner2.0 AS base
+FROM mcr.microsoft.com/dotnet/runtime:10.0 AS base
 WORKDIR /app
 
-FROM mcr.microsoft.com/dotnet/sdk:8.0.403 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 # Copy everything else and build
 COPY ./models ./models
