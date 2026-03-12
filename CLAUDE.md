@@ -4,22 +4,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Dapr PubSub demo with Apache Kafka in C# (.NET 8). A **producer** console app publishes `SampleMessage` events to a Kafka topic via Dapr, and a **consumer** ASP.NET Core web app subscribes and processes them. Both share a **models** library.
+Dapr PubSub demo with Apache Kafka in C# (.NET 10). A **producer** console app publishes `SampleMessage` events to a Kafka topic via Dapr, and a **consumer** ASP.NET Core web app subscribes and processes them. Both share a **models** library.
 
 ## Build Commands
 
 ```bash
-make build          # Clean and build all three projects
-make clean          # Remove bin/ and obj/ directories
+make build          # Clean and build the solution
+make clean          # Clean solution and remove bin/ and obj/ directories
 make image-build    # Build Docker images for producer and consumer
+make upgrade        # Upgrade outdated NuGet packages across all projects
 make help           # List all available Makefile targets
 ```
 
-Individual project builds:
+The root-level `dapr-kafka-csharp.slnx` includes all three projects. Individual project builds:
 ```bash
-cd consumer && dotnet build consumer.csproj
-cd producer && dotnet build producer.csproj
-cd models && dotnet build models.csproj
+dotnet build consumer/consumer.csproj
+dotnet build producer/producer.csproj
+dotnet build models/models.csproj
 ```
 
 ## Running Locally
@@ -57,13 +58,14 @@ consumer/           ASP.NET Core Web app - listens on port 6000
   Startup.cs        Configures Dapr, CloudEvents, MapPost("sampletopic") subscription
                     Topic filter: event.type == "com.dapr.event.sent"
 
-models/             Shared library (netstandard2.1, no dependencies)
+models/             Shared library (net10.0, no dependencies)
   SampleMessage.cs  CorrelationId, MessageId, Message, CreationDate, Sentiment, PreviousAppTimestamp
 ```
 
 - PubSub component name and topic name are both `"sampletopic"`
 - Dapr component config: `producer/deploy/kafka-pubsub.yaml` (local) / `k8s/kafka-pubsub.yaml` (Kubernetes)
-- No root-level `.sln` file; each project is built individually
+- Consumer uses `Startup.cs` pattern (not minimal API), with `UseCloudEvents()` middleware to unwrap CloudEvents payloads
+- JSON serialization uses camelCase naming policy (`JsonNamingPolicy.CamelCase`)
 
 ## Kubernetes Deployment
 
@@ -80,19 +82,14 @@ make k8s-dapr-undeploy
 
 K8s manifests are in `k8s/` (namespace: `dapr-app`).
 
-## Dependencies
+## Key Details
 
-| Package | Version | Used By |
-|---------|---------|---------|
-| Dapr.Client | 1.17.0 | producer, consumer |
-| Dapr.AspNetCore | 1.16.1 | producer, consumer |
-
-.NET SDK version is pinned in `global.json` (8.0.x with `rollForward: latestMajor`).
+- .NET SDK version pinned in `global.json` (10.0.200, `rollForward: latestMajor`)
+- All projects target `net10.0`
+- Each project has its own `nuget.config` pointing to NuGet v3 feed
+- Docker images: `andriykalashnykov/producer:v1.0.0` and `andriykalashnykov/consumer:v1.0.0`
+- Renovate bot manages dependency updates
 
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yml`) runs `make build image-build` on push/PR to main. No tests in CI.
-
-## NuGet Configuration
-
-All projects use `nuget.config` files pointing to the NuGet v3 feed. Package upgrades: `make upgrade`.

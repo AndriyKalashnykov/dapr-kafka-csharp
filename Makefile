@@ -14,15 +14,14 @@ help:
 
 #clean: @ Cleanup
 clean:
+	dotnet clean dapr-kafka-csharp.slnx -v q --nologo
 	@rm -rf ./consumer/bin/ ./consumer/obj/
 	@rm -rf ./models/bin/ ./models/obj/
 	@rm -rf ./producer/bin/ ./producer/obj/
 
 #build: @ Build
 build: clean
-	cd consumer && dotnet build consumer.csproj && cd ..
-	cd models && dotnet build models.csproj && cd ..
-	cd producer && dotnet build producer.csproj && cd ..
+	dotnet build dapr-kafka-csharp.slnx
 
 
 #release: @ Create and push a new tag
@@ -71,9 +70,10 @@ runc: build
 
 #upgrade: @ Upgrade outdated packages
 upgrade:
-	@cd consumer && dotnet list package --outdated | grep -o '> \S*' | grep '[^> ]*' -o | xargs --no-run-if-empty -L 1 dotnet add package
-	@cd models && dotnet list package --outdated | grep -o '> \S*' | grep '[^> ]*' -o | xargs --no-run-if-empty -L 1 dotnet add package
-	@cd producer && dotnet list package --outdated | grep -o '> \S*' | grep '[^> ]*' -o | xargs --no-run-if-empty -L 1 dotnet add package
+	@for proj in consumer models producer; do \
+		cd $$proj && dotnet list package --outdated | grep -o '> \S*' | grep '[^> ]*' -o | xargs --no-run-if-empty -L 1 dotnet add package; \
+		cd ..; \
+	done
 
 #minikube-start: @ Start Minikube, parametrized example: ./scripts/minikube.sh start dapr 1 8000mb 2 40g docker 192.168.200.200
 minikube-start:

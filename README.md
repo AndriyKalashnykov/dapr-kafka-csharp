@@ -181,10 +181,10 @@ dapr-kafka-zookeeper-1   1/1     Running   0          2m13s
 dapr-kafka-zookeeper-2   1/1     Running   0          109s
 ```
 
-3. Deploy the producer and consumer applications to Kubernetes
+3. Build the solution and deploy the producer and consumer applications to Kubernetes
 
 ```
-make image-build
+make build
 make k8s-image-load
 make k8s-workload-deploy
 
@@ -203,9 +203,10 @@ kubectl logs -f -l app=consumer -c consumer -n dapr-app
 
 1. Create your docker hub account or use your own docker registry
 
-2. Build Docker images.
+2. Build the solution and Docker images.
 
 ```sh
+dotnet build dapr-kafka-csharp.slnx
 docker build -t [docker_registry]/consumer:latest -f ./consumer/Dockerfile .
 docker build -t [docker_registry]/producer:latest -f ./producer/Dockerfile .
 ```
