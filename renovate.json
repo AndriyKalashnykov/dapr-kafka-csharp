@@ -3,7 +3,6 @@
   "extends": [
     ":dependencyDashboard",
     ":semanticPrefixFixDepsChoreOthers",
-    "group:dotNetCore",
     "group:monorepos",
     "group:recommended",
     "replacements:all",
@@ -11,6 +10,7 @@
     "config:best-practices"
   ],
   "enabledManagers": [
+    "dockerfile",
     "github-actions",
     "nuget"
   ],
@@ -20,15 +20,10 @@
   "automerge": true,
   "automergeType": "pr",
   "platformAutomerge": true,
+  "ignoreTests": false,
   "packageRules": [
     {
-      "groupName": "ApplicationInsights",
-      "matchPackageNames": [
-        "/ApplicationInsights/"
-      ]
-    },
-    {
-      "groupName": "Dotnet",
+      "groupName": "Dotnet Docker images",
       "matchPackageNames": [
         "dotnet-sdk",
         "mcr.microsoft.com/dotnet/aspnet",
@@ -42,26 +37,13 @@
       ]
     },
     {
-      "groupName": "System.CommandLine",
-      "matchPackageNames": [
-        "System.CommandLine{/,}**"
-      ]
-    },
-    {
-      "groupName": "XUnit",
-      "matchPackageNames": [
-        "xunit{/,}**"
-      ]
-    },
-    {
       "matchManagers": [
         "github-actions"
       ],
-      "groupName": "Pipeline dependencies"
+      "groupName": "GitHub Actions"
     }
   ],
   "prConcurrentLimit": 0,
   "prHourlyLimit": 0,
-  "dependencyDashboard": true,
   "gitAuthor": "Renovate Bot <bot@renovateapp.com>"
 }
