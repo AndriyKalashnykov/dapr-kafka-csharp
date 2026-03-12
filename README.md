@@ -14,7 +14,7 @@
 Download [.Net 10.0.x](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) and run follwing commands:
 
 ```bash
-DOTNET_FILE=/home/$USER//Downloads/dotnet-sdk-10.0.103-linux-x64.tar.gz
+DOTNET_FILE=/home/$USER//Downloads/dotnet-sdk-10.0.200-linux-x64.tar.gz
 export DOTNET_ROOT=/home/$USER/.dotnet
 mkdir -p "$DOTNET_ROOT" && tar zxf "$DOTNET_FILE" -C "$DOTNET_ROOT"
 export PATH=$PATH:$DOTNET_ROOT:$DOTNET_ROOT/tools
@@ -30,7 +30,7 @@ Run the following commands:
   sudo apt-get update && sudo apt-get install -y aspnetcore-runtime-10.0
   ```
 
-and update [global.json](./global.json) to `"version": "10.0.0"`
+and update [global.json](./global.json) to `"version": "10.0.200"`
 
 
 4. Clone the sample repo

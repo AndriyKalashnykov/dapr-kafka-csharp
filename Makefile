@@ -2,6 +2,7 @@
 
 PRODUCER_IMG ?= andriykalashnykov/producer:v1.0.0
 CONSUMER_IMG ?= andriykalashnykov/consumer:v1.0.0
+DAPR_VERSION ?= $(shell curl -s https://api.github.com/repos/dapr/dapr/releases/latest | grep '"tag_name"' | sed 's/.*"v\(.*\)".*/\1/')
 CURRENTTAG:=$(shell git describe --tags --abbrev=0)
 NEWTAG ?= $(shell bash -c 'read -p "Please provide a new tag (currnet tag - ${CURRENTTAG}): " newtag; echo $$newtag')
 
@@ -96,8 +97,8 @@ minikube-list:
 k8s-dapr-deploy:
 	helm repo add dapr https://dapr.github.io/helm-charts/ && \
 	helm repo update && \
-	helm upgrade --install dapr dapr/dapr --set version=1.13.4 --namespace dapr-system --create-namespace --wait && \
-	helm upgrade --install dapr-dashboard dapr/dapr-dashboard --set version=1.13.4 --namespace dapr-system --set serviceType=LoadBalancer --wait && \
+	helm upgrade --install dapr dapr/dapr --set version=$(DAPR_VERSION) --namespace dapr-system --create-namespace --wait && \
+	helm upgrade --install dapr-dashboard dapr/dapr-dashboard --set version=$(DAPR_VERSION) --namespace dapr-system --set serviceType=LoadBalancer --wait && \
 	kubectl get pods --namespace dapr-system
 # kubectl port-forward svc/dapr-dashboard 8080:8080 -n dapr-system
 # xdg-open http://localhost:8080
