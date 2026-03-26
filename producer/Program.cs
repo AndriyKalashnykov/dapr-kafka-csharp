@@ -25,7 +25,7 @@ namespace Dapr.Examples.Pubsub.Producer
         {
             var daprClientBuilder = new DaprClientBuilder();
             var client = daprClientBuilder.Build();
-            
+
             string PUBSUB_NAME = "sampletopic";
             string TOPIC_NAME = "sampletopic";
 
@@ -34,7 +34,7 @@ namespace Dapr.Examples.Pubsub.Producer
                 var message = GenerateNewMessage();
                 Console.WriteLine("Publishing data: {0}", message.Message);
                 var eventData = message;
-                
+
                 // Random random = new Random();
                 // int orderId = random.Next(1,1000);
                 // var eventData = new { Id = orderId, Amount = orderId, };

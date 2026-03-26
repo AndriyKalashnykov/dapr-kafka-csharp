@@ -53,14 +53,14 @@ namespace Dapr.Examples.Pubsub.Consumer
 
             // Enable Cloud Event Middleware to unwrap cloud event payload
             app.UseCloudEvents();
-            
+
             Dapr.TopicOptions topicOptions = new()
             {
                 Match = "event.type==\"com.dapr.event.sent\"",
                 PubsubName = "sampletopic",
                 Name = "sampletopic"
             };
-            
+
             app.UseEndpoints(endpoints =>
             {
                 // Register Subscribe Handlers
