@@ -1,28 +1,45 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    ":dependencyDashboard",
-    ":semanticPrefixFixDepsChoreOthers",
-    "group:monorepos",
-    "group:recommended",
-    "replacements:all",
-    "workarounds:all",
-    "config:best-practices"
+    "config:best-practices",
+    ":semanticCommitType(chore)"
   ],
   "enabledManagers": [
     "dockerfile",
     "github-actions",
     "nuget"
   ],
+  "commitMessagePrefix": "chore(all): ",
+  "commitMessageAction": "update",
+  "commitBody": "Signed-off-by: Renovate Bot <bot@renovateapp.com>",
   "labels": [
     "dependencies"
   ],
+  "prConcurrentLimit": 50,
+  "prHourlyLimit": 0,
+  "platformAutomerge": true,
   "automerge": true,
   "automergeType": "pr",
-  "platformAutomerge": true,
+  "automergeStrategy": "squash",
   "ignoreTests": false,
+  "vulnerabilityAlerts": {
+    "labels": ["security"],
+    "automerge": true,
+    "minimumReleaseAge": "0 days"
+  },
   "packageRules": [
     {
+      "description": "Wait 3 days before automerging major updates",
+      "matchUpdateTypes": ["major"],
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "Group GitHub Actions into one PR",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions"
+    },
+    {
+      "description": "Group .NET Docker images, disable major updates",
       "groupName": "Dotnet Docker images",
       "matchPackageNames": [
         "dotnet-sdk",
@@ -31,19 +48,17 @@
         "mcr.microsoft.com/dotnet/runtime",
         "mcr.microsoft.com/dotnet/runtime-deps"
       ],
-      "extends": [
-        ":disableMajorUpdates",
-        ":pinDigestsDisabled"
-      ]
+      "extends": [":disableMajorUpdates", ":pinDigestsDisabled"]
     },
     {
-      "matchManagers": [
-        "github-actions"
-      ],
-      "groupName": "GitHub Actions"
+      "description": "Group XUnit test dependencies",
+      "groupName": "XUnit",
+      "matchPackageNames": ["/^xunit/"]
+    },
+    {
+      "description": "Group Dapr SDK dependencies",
+      "groupName": "Dapr SDK",
+      "matchPackageNames": ["/^Dapr/"]
     }
-  ],
-  "prConcurrentLimit": 0,
-  "prHourlyLimit": 0,
-  "gitAuthor": "Renovate Bot <bot@renovateapp.com>"
+  ]
 }

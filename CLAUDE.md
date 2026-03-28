@@ -12,7 +12,7 @@ Dapr PubSub demo with Apache Kafka in C# (.NET 10). A **producer** console app p
 make build          # Clean and build the solution
 make clean          # Clean solution and remove bin/ and obj/ directories
 make image-build    # Build Docker images for producer and consumer
-make upgrade        # Upgrade outdated NuGet packages across all projects
+make update         # Update outdated NuGet packages across all projects
 make help           # List all available Makefile targets
 ```
 
@@ -36,8 +36,8 @@ cd consumer && dapr run --app-id consumer --app-port 6000 -- dotnet run
 cd producer && dapr run --app-id producer --resources-path ./deploy -- dotnet run
 
 # Or use Makefile shortcuts (without Dapr sidecar):
-make runc    # Run consumer
-make runp    # Run producer
+make dapr-run-consumer    # Run consumer
+make dapr-run-producer    # Run producer
 ```
 
 There is also a 3-node KRaft Kafka cluster via `docker-compose.yaml` (SASL+SSL, Bitnami images):
@@ -84,7 +84,7 @@ K8s manifests are in `k8s/` (namespace: `dapr-app`).
 
 ## Key Details
 
-- .NET SDK version pinned in `global.json` (10.0.200, `rollForward: latestMajor`)
+- .NET SDK version pinned in `global.json` (10.0.201, `rollForward: latestMajor`)
 - All projects target `net10.0`
 - Each project has its own `nuget.config` pointing to NuGet v3 feed
 - Docker images: `andriykalashnykov/producer:v1.0.0` and `andriykalashnykov/consumer:v1.0.0`
@@ -92,4 +92,17 @@ K8s manifests are in `k8s/` (namespace: `dapr-app`).
 
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yml`) runs `make build image-build` on push/PR to main. No tests in CI.
+GitHub Actions (`.github/workflows/ci.yml`) runs `make build`, `make lint`, `make test` on push/PR to main and tag pushes.
+
+## Skills
+
+Use the following skills when working on related files:
+
+| File(s) | Skill |
+|---------|-------|
+| `Makefile` | `/makefile` |
+| `renovate.json` | `/renovate` |
+| `README.md` | `/readme` |
+| `.github/workflows/*.yml` | `/ci-workflow` |
+
+When spawning subagents, always pass conventions from the respective skill into the agent's prompt.

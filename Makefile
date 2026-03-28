@@ -5,6 +5,8 @@ CURRENTTAG     := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "de
 
 # === Tool Versions (pinned) ===
 DAPR_VERSION   := 1.15.3
+ACT_VERSION    := 0.2.86
+NVM_VERSION    := 0.40.4
 
 # === Project Paths ===
 SOLUTION       := dapr-kafka-csharp.slnx
@@ -30,7 +32,7 @@ clean:
 	@rm -rf ./producer/bin/ ./producer/obj/
 
 #build: @ Build the solution
-build: deps clean
+build: deps
 	@dotnet build "$(SOLUTION)"
 
 #test: @ Run tests
@@ -49,8 +51,19 @@ format: deps
 ci: deps build lint test
 	@echo "Local CI pipeline passed."
 
+#deps-act: @ Install act for local CI
+deps-act: deps
+	@command -v act >/dev/null 2>&1 || { echo "Installing act $(ACT_VERSION)..."; \
+		curl -sSfL https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash -s -- -b /usr/local/bin v$(ACT_VERSION); \
+	}
+
+#ci-run: @ Run GitHub Actions workflow locally via act
+ci-run: deps-act
+	@act push --container-architecture linux/amd64 \
+		--artifact-server-path /tmp/act-artifacts
+
 #release: @ Create and push a new tag
-release:
+release: deps
 	@bash -c 'read -p "New tag (current: $(CURRENTTAG)): " newtag && \
 		echo "$$newtag" | grep -qE "^v[0-9]+\.[0-9]+\.[0-9]+$$" || { echo "Error: Tag must match vN.N.N"; exit 1; } && \
 		echo -n "Create and push $$newtag? [y/N] " && read ans && [ "$${ans:-N}" = y ] && \
@@ -95,7 +108,7 @@ dapr-run-consumer: build
 # dotnet tool update --global dotnet-outdated-tool
 
 #update: @ Update outdated NuGet packages
-update:
+update: deps
 	@for proj in consumer models producer; do \
 		cd $$proj && dotnet list package --outdated | grep -o '> \S*' | grep '[^> ]*' -o | xargs --no-run-if-empty -L 1 dotnet add package; \
 		cd ..; \
@@ -165,16 +178,31 @@ k8s-workload-undeploy:
 	kubectl delete -f ./k8s/kafka-pubsub.yaml --namespace=dapr-app --wait=true --ignore-not-found=true && \
 	kubectl delete -f ./k8s/ns.yaml --ignore-not-found=true
 
+#renovate-bootstrap: @ Install nvm and npm for Renovate
+renovate-bootstrap:
+	@command -v node >/dev/null 2>&1 || { \
+		echo "Installing nvm $(NVM_VERSION)..."; \
+		curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v$(NVM_VERSION)/install.sh | bash; \
+		export NVM_DIR="$$HOME/.nvm"; \
+		[ -s "$$NVM_DIR/nvm.sh" ] && . "$$NVM_DIR/nvm.sh"; \
+		nvm install --lts; \
+	}
+
+#renovate-validate: @ Validate Renovate configuration
+renovate-validate: renovate-bootstrap
+	@npx --yes renovate --platform=local
+
 # ssh into pod
 # kubectl exec --stdin --tty -n kafka-confluent-examples kafka-confluent-go-56686b9958-ft2bh -- /bin/sh
 
 # pod logs
 # kubectl logs -n kafka-confluent-examples kafka-confluent-go-56686b9958-ft2bh --follow --timestamps
 
-.PHONY: help deps clean build test lint format ci release version \
+.PHONY: help deps deps-act clean build test lint format ci ci-run release version \
 	image-build local-kafka-run local-kafka-stop \
 	dapr-run-producer dapr-run-consumer update \
 	minikube-start minikube-stop minikube-delete minikube-list \
 	k8s-dapr-deploy k8s-dapr-undeploy \
 	k8s-kafka-deploy k8s-kafka-undeploy \
-	k8s-image-load k8s-workload-deploy k8s-workload-undeploy
+	k8s-image-load k8s-workload-deploy k8s-workload-undeploy \
+	renovate-bootstrap renovate-validate
