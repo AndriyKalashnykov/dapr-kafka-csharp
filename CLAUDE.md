@@ -92,7 +92,7 @@ K8s manifests are in `k8s/` (namespace: `dapr-app`).
 
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yml`) runs `make build`, `make lint`, `make test` on push/PR to main and tag pushes.
+GitHub Actions (`.github/workflows/ci.yml`) runs `make build`, `make lint`, `make test` on push/PR to main and tag pushes. On tag pushes (`v*`), a separate `docker` job builds multi-arch images (`linux/amd64`, `linux/arm64`) and pushes to Docker Hub. Requires `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` secrets.
 
 ## Skills
 

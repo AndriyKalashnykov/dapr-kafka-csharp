@@ -208,6 +208,9 @@ GitHub Actions runs on every push to `main`, tags `v*`, and pull requests.
 | Job | Triggers | Steps |
 |-----|----------|-------|
 | **ci** | push, PR, tags | Build, Lint, Test |
+| **docker** | tag push (`v*`) | QEMU, Buildx, Login, Build & Push multi-arch images |
+
+Docker images are pushed to Docker Hub on tag pushes with semver tags (`v1.2.3` → `1.2.3`, `1.2`, `1`). Requires `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` repository secrets.
 
 [Renovate](https://docs.renovatebot.com/) keeps dependencies up to date with platform automerge enabled.
 
