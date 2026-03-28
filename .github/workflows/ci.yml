@@ -74,14 +74,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6
+      - name: Docker meta
         id: meta
+        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ matrix.app }}
+          flavor: |
+            latest=false
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=ref,event=branch
+            type=ref,event=tag
+            type=ref,event=pr
+            type=semver,pattern=v{{version}}
+          labels: |
+            org.opencontainers.image.vendor=Andriy Kalashnykov - andriykalashnykov@gmail.com
+            org.opencontainers.image.title=Dapr Kafka ${{ matrix.app }}
+            org.opencontainers.image.description=Dapr PubSub ${{ matrix.app }} with Apache Kafka in C#
+            org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.version=${{ github.ref_name }}
+            io.artifacthub.package.readme-url=https://raw.githubusercontent.com/AndriyKalashnykov/dapr-kafka-csharp/main/README.md
+            io.artifacthub.package.maintainers=[{\"name\":\"Andriy Kalashnykov\",\"email\":\"andriykalashnykov@gmail.com\"}]
+            io.artifacthub.package.license=MIT
 
       - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
         with:
