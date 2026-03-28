@@ -69,7 +69,7 @@ release: deps
 		echo -n "Create and push $$newtag? [y/N] " && read ans && [ "$${ans:-N}" = y ] && \
 		echo $$newtag > ./version.txt && \
 		git add -A && \
-		git commit -a -s -m "Cut $$newtag release" && \
+		git diff --cached --quiet || git commit -s -m "Cut $$newtag release" && \
 		git tag $$newtag && \
 		git push origin $$newtag && \
 		git push && \
