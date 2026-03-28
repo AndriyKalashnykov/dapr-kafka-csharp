@@ -5,6 +5,7 @@
     ":semanticCommitType(chore)"
   ],
   "enabledManagers": [
+    "docker-compose",
     "dockerfile",
     "github-actions",
     "nuget"
@@ -28,11 +29,6 @@
     "minimumReleaseAge": "0 days"
   },
   "packageRules": [
-    {
-      "description": "Wait 3 days before automerging major updates",
-      "matchUpdateTypes": ["major"],
-      "minimumReleaseAge": "3 days"
-    },
     {
       "description": "Group GitHub Actions into one PR",
       "matchManagers": ["github-actions"],
