@@ -92,7 +92,7 @@ K8s manifests are in `k8s/` (namespace: `dapr-app`).
 
 ## CI
 
-GitHub Actions (`.github/workflows/ci.yml`) runs `make build`, `make lint`, `make test` on push/PR to main and tag pushes. On tag pushes (`v*`), a separate `docker` job builds multi-arch images (`linux/amd64`, `linux/arm64`) and pushes to GHCR (`ghcr.io`). Requires `GH_ACCESS_TOKEN` secret.
+GitHub Actions (`.github/workflows/ci.yml`) runs `make build`, `make lint`, `make test` on push/PR to main and tag pushes. On tag pushes (`v*`), a separate `docker` job builds multi-arch images (`linux/amd64`, `linux/arm64`) and pushes to GHCR (`ghcr.io`). Uses `GITHUB_TOKEN` with `packages: write` permission.
 
 ## Skills
 

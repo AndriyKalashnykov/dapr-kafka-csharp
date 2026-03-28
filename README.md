@@ -210,7 +210,7 @@ GitHub Actions runs on every push to `main`, tags `v*`, and pull requests.
 | **ci** | push, PR, tags | Build, Lint, Test |
 | **docker** | tag push (`v*`) | QEMU, Buildx, Login, Build & Push multi-arch images |
 
-Docker images are pushed to GHCR (`ghcr.io`) on tag pushes with semver tags (`v1.2.3` → `1.2.3`, `1.2`, `1`). Requires `GH_ACCESS_TOKEN` repository secret.
+Docker images are pushed to GHCR (`ghcr.io`) on tag pushes with semver tags (`v1.2.3` → `1.2.3`, `1.2`, `1`). Uses `GITHUB_TOKEN` with `packages: write` permission (no extra secrets needed).
 
 [Renovate](https://docs.renovatebot.com/) keeps dependencies up to date with platform automerge enabled.
 
