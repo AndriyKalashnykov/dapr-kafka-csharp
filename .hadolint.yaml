@@ -5,3 +5,7 @@ ignored:
   # Reason: Base image tags use major version (e.g., 10.0) which is intentional
   # for .NET projects to receive minor/patch updates automatically
   - DL3006
+  # DL3059: Multiple consecutive RUN instructions
+  # Reason: Separate RUN instructions for dotnet restore per project is intentional
+  # in multi-stage builds to maximize Docker layer caching
+  - DL3059
