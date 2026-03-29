@@ -45,7 +45,7 @@ Run `make help` to see all available targets.
 | `make build` | Build the solution |
 | `make clean` | Remove build artifacts |
 | `make test` | Run tests |
-| `make lint` | Check code formatting |
+| `make lint` | Check code formatting and lint Dockerfiles |
 | `make format` | Auto-fix code formatting |
 | `make dapr-run-producer` | Run producer |
 | `make dapr-run-consumer` | Run consumer |
@@ -86,6 +86,7 @@ Run `make help` to see all available targets.
 | Target | Description |
 |--------|-------------|
 | `make deps` | Check required tools |
+| `make deps-hadolint` | Install hadolint for Dockerfile linting |
 | `make update` | Update outdated NuGet packages |
 | `make release` | Create and push a new tag |
 | `make version` | Print current version (tag) |

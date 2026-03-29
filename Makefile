@@ -4,9 +4,10 @@ APP_NAME       := dapr-kafka-csharp
 CURRENTTAG     := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "dev")
 
 # === Tool Versions (pinned) ===
-DAPR_VERSION   := 1.15.3
-ACT_VERSION    := 0.2.86
-NVM_VERSION    := 0.40.4
+DAPR_VERSION     := 1.15.3
+ACT_VERSION      := 0.2.86
+NVM_VERSION      := 0.40.4
+HADOLINT_VERSION := 2.12.0
 
 # === Project Paths ===
 SOLUTION       := dapr-kafka-csharp.slnx
@@ -39,9 +40,19 @@ build: deps
 test: deps
 	@dotnet test "$(SOLUTION)" -c Release --nologo -v q
 
-#lint: @ Check code formatting
-lint: deps
+#deps-hadolint: @ Install hadolint for Dockerfile linting
+deps-hadolint:
+	@command -v hadolint >/dev/null 2>&1 || { echo "Installing hadolint $(HADOLINT_VERSION)..."; \
+		curl -sSfL -o /tmp/hadolint https://github.com/hadolint/hadolint/releases/download/v$(HADOLINT_VERSION)/hadolint-Linux-x86_64 && \
+		install -m 755 /tmp/hadolint /usr/local/bin/hadolint && \
+		rm -f /tmp/hadolint; \
+	}
+
+#lint: @ Check code formatting and lint Dockerfiles
+lint: deps deps-hadolint
 	@dotnet format "$(SOLUTION)" --verify-no-changes
+	@hadolint consumer/Dockerfile
+	@hadolint producer/Dockerfile
 
 #format: @ Auto-fix code formatting
 format: deps
@@ -198,7 +209,7 @@ renovate-validate: renovate-bootstrap
 # pod logs
 # kubectl logs -n kafka-confluent-examples kafka-confluent-go-56686b9958-ft2bh --follow --timestamps
 
-.PHONY: help deps deps-act clean build test lint format ci ci-run release version \
+.PHONY: help deps deps-act deps-hadolint clean build test lint format ci ci-run release version \
 	image-build local-kafka-run local-kafka-stop \
 	dapr-run-producer dapr-run-consumer update \
 	minikube-start minikube-stop minikube-delete minikube-list \

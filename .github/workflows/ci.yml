@@ -82,9 +82,7 @@ jobs:
           flavor: |
             latest=true
           tags: |
-            type=ref,event=branch
             type=ref,event=tag
-            type=ref,event=pr
             type=semver,pattern=v{{version}}
           labels: |
             org.opencontainers.image.vendor=Andriy Kalashnykov - andriykalashnykov@gmail.com

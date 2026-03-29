@@ -13,6 +13,7 @@ make build          # Clean and build the solution
 make clean          # Clean solution and remove bin/ and obj/ directories
 make image-build    # Build Docker images for producer and consumer
 make update         # Update outdated NuGet packages across all projects
+make lint           # Check code formatting and lint Dockerfiles (auto-installs hadolint)
 make help           # List all available Makefile targets
 ```
 

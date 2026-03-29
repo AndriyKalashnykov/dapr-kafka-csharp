@@ -1,0 +1,7 @@
+# hadolint configuration
+# https://github.com/hadolint/hadolint#configure
+ignored:
+  # DL3006: Always tag the version of an image explicitly
+  # Reason: Base image tags use major version (e.g., 10.0) which is intentional
+  # for .NET projects to receive minor/patch updates automatically
+  - DL3006
