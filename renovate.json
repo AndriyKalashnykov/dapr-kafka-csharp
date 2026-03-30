@@ -20,23 +20,29 @@
   "prHourlyLimit": 0,
   "platformAutomerge": true,
   "automerge": true,
-  "automergeType": "pr",
+  "automergeType": "branch",
   "automergeStrategy": "squash",
   "ignoreTests": false,
   "vulnerabilityAlerts": {
-    "labels": ["security"],
+    "labels": [
+      "security"
+    ],
     "automerge": true,
     "minimumReleaseAge": "0 days"
   },
   "packageRules": [
     {
       "description": "Wait 3 days before automerging major updates",
-      "matchUpdateTypes": ["major"],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "minimumReleaseAge": "3 days"
     },
     {
       "description": "Group GitHub Actions into one PR",
-      "matchManagers": ["github-actions"],
+      "matchManagers": [
+        "github-actions"
+      ],
       "groupName": "GitHub Actions"
     },
     {
@@ -49,17 +55,24 @@
         "mcr.microsoft.com/dotnet/runtime",
         "mcr.microsoft.com/dotnet/runtime-deps"
       ],
-      "extends": [":disableMajorUpdates", ":pinDigestsDisabled"]
+      "extends": [
+        ":disableMajorUpdates",
+        ":pinDigestsDisabled"
+      ]
     },
     {
       "description": "Group XUnit test dependencies",
       "groupName": "XUnit",
-      "matchPackageNames": ["/^xunit/"]
+      "matchPackageNames": [
+        "/^xunit/"
+      ]
     },
     {
       "description": "Group Dapr SDK dependencies",
       "groupName": "Dapr SDK",
-      "matchPackageNames": ["/^Dapr/"]
+      "matchPackageNames": [
+        "/^Dapr/"
+      ]
     }
   ]
 }
