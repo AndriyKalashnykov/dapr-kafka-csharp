@@ -4,12 +4,6 @@
     "config:best-practices",
     ":semanticCommitType(chore)"
   ],
-  "enabledManagers": [
-    "docker-compose",
-    "dockerfile",
-    "github-actions",
-    "nuget"
-  ],
   "commitMessagePrefix": "chore(all): ",
   "commitMessageAction": "update",
   "commitBody": "Signed-off-by: Renovate Bot <bot@renovateapp.com>",
@@ -31,6 +25,13 @@
     "minimumReleaseAge": "0 days"
   },
   "packageRules": [
+    {
+      "description": "Only enable docker-compose, dockerfile, github-actions, nuget managers",
+      "matchManagers": [
+        "!/^(docker-compose|dockerfile|github-actions|nuget)$/"
+      ],
+      "enabled": false
+    },
     {
       "description": "Wait 3 days before automerging major updates",
       "matchUpdateTypes": [

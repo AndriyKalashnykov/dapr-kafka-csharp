@@ -83,6 +83,21 @@ make k8s-dapr-undeploy
 
 K8s manifests are in `k8s/` (namespace: `dapr-app`).
 
+## Testing
+
+```bash
+make test           # Run all tests (dotnet test in Release config)
+make ci             # Full local CI pipeline: build + lint + test
+make ci-run         # Run GitHub Actions workflow locally via act
+```
+
+## Formatting
+
+```bash
+make lint           # Check code formatting (dotnet format --verify-no-changes) + hadolint Dockerfiles
+make format         # Auto-fix code formatting (dotnet format)
+```
+
 ## Key Details
 
 - .NET SDK version pinned in `global.json` (10.0.201, `rollForward: latestMajor`)
