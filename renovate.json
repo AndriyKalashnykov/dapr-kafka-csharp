@@ -17,6 +17,13 @@
   "automergeType": "branch",
   "automergeStrategy": "squash",
   "ignoreTests": false,
+  "enabledManagers": [
+    "docker-compose",
+    "dockerfile",
+    "github-actions",
+    "nuget",
+    "custom.regex"
+  ],
   "vulnerabilityAlerts": {
     "labels": [
       "security"
@@ -24,14 +31,53 @@
     "automerge": true,
     "minimumReleaseAge": "0 days"
   },
-  "packageRules": [
+  "customManagers": [
     {
-      "description": "Only enable docker-compose, dockerfile, github-actions, nuget managers",
-      "matchManagers": [
-        "!/^(docker-compose|dockerfile|github-actions|nuget)$/"
+      "customType": "regex",
+      "description": "Track act version in Makefile",
+      "managerFilePatterns": ["/^Makefile$/"],
+      "matchStrings": [
+        "ACT_VERSION\\s*:=\\s*(?<currentValue>.*?)\\n"
       ],
-      "enabled": false
+      "depNameTemplate": "nektos/act",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
     },
+    {
+      "customType": "regex",
+      "description": "Track nvm version in Makefile",
+      "managerFilePatterns": ["/^Makefile$/"],
+      "matchStrings": [
+        "NVM_VERSION\\s*:=\\s*(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "nvm-sh/nvm",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "description": "Track hadolint version in Makefile",
+      "managerFilePatterns": ["/^Makefile$/"],
+      "matchStrings": [
+        "HADOLINT_VERSION\\s*:=\\s*(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "hadolint/hadolint",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "description": "Track Dapr version in Makefile",
+      "managerFilePatterns": ["/^Makefile$/"],
+      "matchStrings": [
+        "DAPR_VERSION\\s*:=\\s*(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "dapr/dapr",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    }
+  ],
+  "packageRules": [
     {
       "description": "Wait 3 days before automerging major updates",
       "matchUpdateTypes": [
@@ -47,7 +93,7 @@
       "groupName": "GitHub Actions"
     },
     {
-      "description": "Group .NET Docker images, disable major updates",
+      "description": "Group .NET Docker images, minor and patch only",
       "groupName": "Dotnet Docker images",
       "matchPackageNames": [
         "dotnet-sdk",
@@ -56,10 +102,14 @@
         "mcr.microsoft.com/dotnet/runtime",
         "mcr.microsoft.com/dotnet/runtime-deps"
       ],
-      "extends": [
-        ":disableMajorUpdates",
-        ":pinDigestsDisabled"
-      ]
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest",
+        "pin",
+        "pinDigest"
+      ],
+      "pinDigests": false
     },
     {
       "description": "Group XUnit test dependencies",
@@ -74,6 +124,13 @@
       "matchPackageNames": [
         "/^Dapr/"
       ]
+    },
+    {
+      "description": "Group Makefile tool versions",
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "groupName": "Makefile tools"
     }
   ]
 }

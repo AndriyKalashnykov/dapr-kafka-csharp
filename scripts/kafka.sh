@@ -28,7 +28,7 @@ KAFKA_PASSWORD=kafka-client-password
 #KAFKA_PASSWORD=${KAFKA_PASSWORD:-$(openssl rand -hex 6)}
 
 # https://github.com/bitnami/charts/tree/main/bitnami/kafka#upgrading
-KAFKA_VERSION="28.0.0"
+KAFKA_VERSION="32.4.3"
 #KAFKA_UI_VERSION="0.7.5"
 
 
@@ -48,7 +48,9 @@ if [[ $SCRIPT_ACTION == "install"  ]]; then
   helm upgrade --install -f $TPM_VALUES_NAME $KAFKA_CLUSTER_NAME bitnami/kafka --namespace $KAFKA_NAMESPACE --create-namespace  \
     --timeout 10m \
     --version $KAFKA_VERSION \
-    --set image.tag=latest \
+    --set image.registry=docker.io \
+    --set image.repository=bitnamilegacy/kafka \
+    --set image.tag=4.0.0-debian-12-r10 \
     --set persistence.storageClass=standard \
     --set controller.persistence.enabled=true \
     --set controller.persistence.size=4Gi \
@@ -81,7 +83,7 @@ if [[ $SCRIPT_ACTION == "install"  ]]; then
     --set listeners.client.protocol="SASL_PLAINTEXT" \
     --wait
   
-  kubectl run $KAFKA_CLUSTER_NAME-client --restart='Never' --image docker.io/bitnami/kafka:latest --namespace $KAFKA_NAMESPACE --command -- sleep infinity
+  kubectl run $KAFKA_CLUSTER_NAME-client --restart='Never' --image docker.io/bitnamilegacy/kafka:4.0.0-debian-12-r10 --namespace $KAFKA_NAMESPACE --command -- sleep infinity
   kubectl wait --for=condition=ready pod/$KAFKA_CLUSTER_NAME-client -n $KAFKA_NAMESPACE
   kubectl cp --namespace $KAFKA_NAMESPACE $SCRIPT_PARENT_DIR/kafka/client.properties $KAFKA_CLUSTER_NAME-client:/tmp/client.properties
   

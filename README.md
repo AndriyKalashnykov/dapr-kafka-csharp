@@ -13,7 +13,7 @@ Dapr PubSub demo with Apache Kafka in C# (.NET 10). A **producer** console app p
 ```bash
 make deps                    # verify required tools
 make build                   # build the solution
-docker-compose -f ./docker-compose-kafka.yaml up -d  # start Kafka
+docker compose -f ./docker-compose-kafka.yaml up -d   # start Kafka
 make dapr-run-consumer       # run consumer (terminal 1)
 make dapr-run-producer       # run producer (terminal 2)
 ```
@@ -22,6 +22,7 @@ make dapr-run-producer       # run producer (terminal 2)
 
 | Tool | Version | Purpose |
 |------|---------|---------|
+| [Git](https://git-scm.com/) | 2.x+ | Version control |
 | [GNU Make](https://www.gnu.org/software/make/) | 3.81+ | Build orchestration |
 | [.NET SDK](https://dotnet.microsoft.com/download) | 10.0+ | Build and run C# projects |
 | [Docker](https://www.docker.com/) | latest | Run Kafka, build container images |
@@ -65,11 +66,16 @@ Run `make help` to see all available targets.
 |--------|-------------|
 | `make ci` | Run full local CI pipeline |
 | `make ci-run` | Run GitHub Actions workflow locally via [act](https://github.com/nektos/act) |
+| `make deps-act` | Install act for local CI |
 
 ### Kubernetes
 
 | Target | Description |
 |--------|-------------|
+| `make k8s-deploy` | Full K8s deploy (Dapr + Kafka + workloads) |
+| `make k8s-undeploy` | Full K8s undeploy (workloads + Kafka + Dapr) |
+| `make k8s-test` | Verify K8s deployment (pods running, messages flowing) |
+| `make deps-k8s` | Check Kubernetes tools (minikube, kubectl, helm, dapr) |
 | `make minikube-start` | Start Minikube |
 | `make minikube-stop` | Stop Minikube |
 | `make minikube-delete` | Delete Minikube |
@@ -91,6 +97,7 @@ Run `make help` to see all available targets.
 | `make update` | Update outdated NuGet packages |
 | `make release` | Create and push a new tag |
 | `make version` | Print current version (tag) |
+| `make renovate-bootstrap` | Install nvm and npm for Renovate |
 | `make renovate-validate` | Validate Renovate configuration |
 
 ## Running Locally
@@ -105,13 +112,13 @@ dapr init
 
 ### Run Kafka Docker Container Locally
 
-Run the [Kafka broker server](https://github.com/wurstmeister/kafka-docker) in a Docker container:
+Run Kafka locally (single-broker KRaft, no Zookeeper):
 
 ```bash
-docker-compose -f ./docker-compose-kafka.yaml up -d
+docker compose -f ./docker-compose-kafka.yaml up -d
 ```
 
-There is also a 3-node KRaft Kafka cluster via `docker-compose.yaml` (SASL+SSL, Bitnami images):
+There is also a 3-node KRaft Kafka cluster via `docker-compose.yaml` (SASL+SSL, Bitnami Kafka 4.0):
 
 ```bash
 make local-kafka-run   # Start
@@ -135,43 +142,29 @@ dapr run --app-id producer --resources-path ./deploy -- dotnet run
 ### Uninstall Kafka
 
 ```bash
-docker-compose -f ./docker-compose-kafka.yaml down
+docker compose -f ./docker-compose-kafka.yaml down
 ```
 
 ## Run in Kubernetes Cluster
 
-### Install Dapr on Kubernetes
+### One-command deploy
 
 ```bash
-dapr init -k
+make k8s-deploy    # Starts Minikube, installs Dapr + Kafka, builds and deploys workloads
+make k8s-test      # Verifies pods running and messages flowing end-to-end
 ```
 
-> For more detail, refer to [Dapr in Kubernetes environment](https://github.com/dapr/docs/blob/master/getting-started/environment-setup.md#installing-dapr-on-a-kubernetes-cluster).
-> For Helm users, refer to [this guide](https://github.com/dapr/docs/blob/master/getting-started/environment-setup.md#using-helm-advanced).
-
-### Setting up Kafka in Kubernetes
-
-1. Install Kafka:
+### Step-by-step deploy
 
 ```bash
-make k8s-kafka-deploy
+make minikube-start       # Start Minikube (profile: dapr-dotnet)
+make k8s-dapr-deploy      # Install Dapr via Helm
+make k8s-kafka-deploy     # Install Kafka (Bitnami chart, Kafka 4.0, SASL)
+make k8s-workload-deploy  # Build images, load into Minikube, deploy apps
+make k8s-test             # Verify everything works
 ```
 
-2. Wait until Kafka pods are running:
-
-```bash
-kubectl get pods -n kafka -w
-```
-
-3. Build the solution and deploy the producer and consumer applications:
-
-```bash
-make build
-make k8s-image-load
-make k8s-workload-deploy
-```
-
-4. Check the logs from producer and consumer:
+Check logs:
 
 ```bash
 kubectl logs -f -l app=producer -c producer -n dapr-app
@@ -181,9 +174,8 @@ kubectl logs -f -l app=consumer -c consumer -n dapr-app
 ### Cleanup
 
 ```bash
-make k8s-workload-undeploy   # Stop applications
-make k8s-kafka-undeploy      # Uninstall Kafka
-dapr uninstall -k            # Uninstall Dapr
+make k8s-undeploy      # Undeploy workloads + Kafka + Dapr
+make minikube-delete   # Delete Minikube cluster
 ```
 
 ## Build and Push Docker Images
@@ -209,8 +201,12 @@ GitHub Actions runs on every push to `main`, tags `v*`, and pull requests.
 
 | Job | Triggers | Steps |
 |-----|----------|-------|
-| **ci** | push, PR, tags | Build, Lint, Test |
+| **lint** | push, PR, tags | Format check, compiler warnings-as-errors, hadolint |
+| **build** | after lint passes | Build the solution |
+| **test** | after lint passes | Run tests |
 | **docker** | tag push (`v*`) | QEMU, Buildx, Login, Build & Push multi-arch images |
+
+A weekly **cleanup** workflow prunes old workflow runs (retains 7 days, minimum 5 runs).
 
 Docker images are pushed to GHCR (`ghcr.io`) on tag pushes with semver tags (`v1.2.3` → `1.2.3`, `1.2`, `1`). Uses `GITHUB_TOKEN` with `packages: write` permission (no extra secrets needed).
 

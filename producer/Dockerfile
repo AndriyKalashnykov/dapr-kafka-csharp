@@ -1,5 +1,5 @@
-# https://mcr.microsoft.com/en-us/product/dotnet/runtime/tags
-FROM mcr.microsoft.com/dotnet/runtime:10.0 AS base
+# https://mcr.microsoft.com/en-us/product/dotnet/aspnet/tags
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 WORKDIR /app
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
