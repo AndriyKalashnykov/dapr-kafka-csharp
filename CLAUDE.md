@@ -166,10 +166,13 @@ Deferred items from `/upgrade-analysis` (2026-04-20). Review and resolve on futu
 
 - [ ] **Helm 3 → 4 migration** — Helm 4.1.4 is stable alongside 3.20.2. Helm 4 has SDK/plugin API breaking changes. Pinned on `3.20.2` for now; plan a separate POC before committing.
 - [ ] **K8s Kafka path still on Bitnami** — `scripts/kafka.sh` uses `bitnami/kafka` Helm chart with `bitnamilegacy/kafka:4.0.0-debian-12-r10`. Compose paths migrated to `apache/kafka` 2026-04; K8s path deferred. Options: (a) Strimzi operator, (b) custom chart around `apache/kafka`, (c) paid Broadcom Tanzu Bitnami registry. Track when Bitnami Helm chart itself moves behind the paywall.
-- [ ] **Branch protection on `main` not configured** — `.github/CODEOWNERS` exists, `ci-pass` aggregator exists, but `gh api .../branches/main/protection` returns 404. Enable branch protection with `ci-pass` as the single required check + require code-owner review to make both load-bearing.
-- [ ] **Microsoft.NET.Test.Sdk 18.4.0 ↔ TUnit 1.37.0 compat** — untested on first-run. If `dotnet test` fails with MTP runner errors, pin `Microsoft.NET.Test.Sdk` to a version TUnit's MTP runner was released against (check TUnit release notes).
-- [ ] **Kafka 4.2 upgrade** — compose stays on `apache/kafka:4.0.2` (conservative); bump to 4.2.x when the project has integration tests proving compatibility.
 - [ ] **Bitnami Helm chart succession** — `charts.bitnami.com/bitnami` moved to `repo.broadcom.com/bitnami-files` (302 redirect). If this host goes paywalled or offline, `scripts/kafka.sh` breaks. Monitor.
+
+Resolved:
+
+- [x] **Branch protection on `main`** — Repository Rulesets are active (discovered via direct-push rejection with `GH013: Repository rule violations found`); `ci-pass` is enforced as the required status check.
+- [x] **Microsoft.NET.Test.Sdk ↔ TUnit 1.37.0 compat** — validated by green CI across runs [24689392397](https://github.com/AndriyKalashnykov/dapr-kafka-csharp/actions/runs/24689392397), [24690437810](https://github.com/AndriyKalashnykov/dapr-kafka-csharp/actions/runs/24690437810), and local `make ci-run` under act. TUnit bundles its own MTP runner; `Microsoft.NET.Test.Sdk` is not referenced in test csprojs.
+- [x] **Kafka 4.2 upgrade** — Compose paths bumped to `apache/kafka:4.2.0` (digest-pinned); e2e-compose passes (PASS=2 FAIL=0). K8s path still on Bitnami — tracked separately.
 
 ## Skills
 

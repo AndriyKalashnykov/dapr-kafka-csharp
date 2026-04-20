@@ -1,10 +1,9 @@
 name: CI
 
 on:
-  # No paths-ignore: CI must always run so the `ci-pass` aggregator always
-  # reports a status. The repository's ruleset requires `ci-pass` before merge,
-  # and a path-filtered trigger would skip the workflow entirely on doc-only
-  # PRs — leaving nothing to report and deadlocking the merge.
+  # No trigger-level paths-ignore: it deadlocks with Repository Rulesets
+  # (workflow never runs → `ci-pass` never reports → required-check gate
+  # never clears). Heavy jobs gate on the `changes` detector below instead.
   push:
     branches: [main]
     tags: ['v*']
@@ -27,7 +26,37 @@ env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
+  # Detector: decide whether the change touches code (heavy jobs run) or is
+  # doc-only (heavy jobs skip; ci-pass treats skipped as pass). See the
+  # `/ci-workflow` skill section "Path-Filter Strategy" for the rationale.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        with:
+          filters: |
+            code:
+              - '!**.md'
+              - '!LICENSE'
+              - '!.gitignore'
+              - '!.claudeignore'
+              - '!.claude/**'
+              - '!docs/**'
+              - 'CLAUDE.md'
+
   static-check:
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -45,7 +74,8 @@ jobs:
         run: make lint
 
   build:
-    needs: [static-check]
+    needs: [changes, static-check]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -63,7 +93,8 @@ jobs:
         run: make build
 
   test:
-    needs: [static-check]
+    needs: [changes, static-check]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -94,7 +125,8 @@ jobs:
           if-no-files-found: ignore
 
   integration-test:
-    needs: [static-check]
+    needs: [changes, static-check]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -123,7 +155,8 @@ jobs:
           if-no-files-found: ignore
 
   e2e:
-    needs: [build, test]
+    needs: [changes, build, test]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -301,7 +334,7 @@ jobs:
 
   ci-pass:
     if: always()
-    needs: [static-check, build, test, integration-test, e2e, docker]
+    needs: [changes, static-check, build, test, integration-test, e2e, docker]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
