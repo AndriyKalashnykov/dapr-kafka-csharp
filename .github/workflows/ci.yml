@@ -141,6 +141,14 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Install Dapr CLI
+        run: |
+          wget -q https://raw.githubusercontent.com/dapr/cli/master/install/install.sh -O - | /bin/bash -s 1.17.1
+          dapr --version
+
+      - name: Initialize Dapr (standalone mode)
+        run: dapr init
+
       - name: End-to-end tests
         run: |
           if [ -x e2e/e2e-compose-test.sh ]; then
