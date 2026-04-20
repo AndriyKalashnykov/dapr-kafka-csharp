@@ -10,6 +10,11 @@ namespace Dapr.Examples.Pubsub.Consumer
 
     public class Program
     {
+        // YAML-coupled constant: must match k8s/consumer.yaml (containerPort, targetPort,
+        // dapr.io/app-port) and `dapr run --app-port` in the Makefile target.
+        // Do NOT externalize — changing requires editing all four locations in lockstep.
+        internal const string AppBindUrl = "http://*:6000";
+
         public static void Main(string[] args)
         {
             CreateHostBuilder(args).Build().Run();
@@ -19,7 +24,7 @@ namespace Dapr.Examples.Pubsub.Consumer
             Host.CreateDefaultBuilder(args)
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
-                    webBuilder.UseStartup<Startup>().UseUrls(urls: "http://*:6000");
+                    webBuilder.UseStartup<Startup>().UseUrls(AppBindUrl);
                 });
     }
 }

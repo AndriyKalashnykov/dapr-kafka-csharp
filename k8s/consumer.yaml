@@ -34,12 +34,26 @@ spec:
         dapr.io/app-id: "consumer"
         dapr.io/app-port: "6000"
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1654
+        fsGroup: 1654
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: consumer
           image: docker.io/andriykalashnykov/consumer:v1.0.0
           ports:
             - containerPort: 6000
           imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1654
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           resources:
             requests:
               cpu: 100m

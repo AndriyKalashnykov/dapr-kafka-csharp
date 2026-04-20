@@ -1,0 +1,21 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: sampletopic
+spec:
+  type: pubsub.kafka
+  version: v1
+  initTimeout: 30s
+  metadata:
+    - name: brokers
+      value: "localhost:9092"
+    - name: clientID
+      value: "dapr-kafka-csharp"
+    - name: authType
+      value: "none"
+    - name: maxMessageBytes
+      value: 1024
+    - name: consumeRetryInterval
+      value: 200ms
+    - name: disableTls
+      value: "true"

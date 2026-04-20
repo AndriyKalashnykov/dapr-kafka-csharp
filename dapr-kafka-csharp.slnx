@@ -7,4 +7,10 @@
   <Project Path="consumer/consumer.csproj" />
   <Project Path="models/models.csproj" />
   <Project Path="producer/producer.csproj" />
+  <Folder Name="/tests/">
+    <Project Path="tests/models.UnitTests/models.UnitTests.csproj" />
+    <Project Path="tests/producer.UnitTests/producer.UnitTests.csproj" />
+    <Project Path="tests/producer.IntegrationTests/producer.IntegrationTests.csproj" />
+    <Project Path="tests/consumer.IntegrationTests/consumer.IntegrationTests.csproj" />
+  </Folder>
 </Solution>

@@ -76,8 +76,24 @@ namespace Dapr.Examples.Pubsub.Consumer
         {
             Console.WriteLine("Message is delivered.");
 
-            var client = context.RequestServices.GetRequiredService<DaprClient>();
-            var message = await JsonSerializer.DeserializeAsync<SampleMessage>(context.Request.Body, serializerOptions);
+            SampleMessage message;
+            try
+            {
+                message = await JsonSerializer.DeserializeAsync<SampleMessage>(context.Request.Body, serializerOptions);
+            }
+            catch (JsonException ex)
+            {
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                await context.Response.WriteAsync($"Invalid JSON payload: {ex.Message}");
+                return;
+            }
+
+            if (message is null)
+            {
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                await context.Response.WriteAsync("Invalid message payload.");
+                return;
+            }
 
             Console.WriteLine($"message id: {message.MessageId}");
             Console.WriteLine($"message context: {message.Message}");

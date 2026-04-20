@@ -1,0 +1,24 @@
+# CODEOWNERS — require owner review on supply-chain-adjacent paths.
+# Syntax: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+.github/                @AndriyKalashnykov
+.github/workflows/      @AndriyKalashnykov
+.github/actions/        @AndriyKalashnykov
+.github/CODEOWNERS      @AndriyKalashnykov
+
+# Build / release surface
+Makefile                @AndriyKalashnykov
+.mise.toml              @AndriyKalashnykov
+global.json             @AndriyKalashnykov
+Directory.Build.props   @AndriyKalashnykov
+
+# Container surface
+**/Dockerfile           @AndriyKalashnykov
+docker-compose.yaml     @AndriyKalashnykov
+docker-compose-kafka.yaml @AndriyKalashnykov
+.dockerignore           @AndriyKalashnykov
+
+# Dependency configuration
+renovate.json           @AndriyKalashnykov
+**/*.csproj             @AndriyKalashnykov
+**/packages.lock.json   @AndriyKalashnykov

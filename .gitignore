@@ -84,6 +84,11 @@ bld/
 *.vspx
 /drop
 
-# VS Code
-.vscode/
+# IDE local state (JetBrains, VS Code, etc.)
 .idea/
+**/.idea/
+.vscode/
+
+# Claude Code session-local files
+.claude/scheduled_tasks.lock
+.claude/session-data/

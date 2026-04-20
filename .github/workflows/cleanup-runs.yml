@@ -4,12 +4,17 @@ on:
   schedule:
     - cron: '0 0 * * 0'
   workflow_dispatch:
+  workflow_call:
+
+concurrency:
+  group: cleanup-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   actions: write
 
 jobs:
-  cleanup:
+  cleanup-runs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
@@ -22,5 +27,17 @@ jobs:
           CUTOFF=$(date -u -d "$RETAIN_DAYS days ago" +%Y-%m-%dT%H:%M:%SZ)
           gh run list --repo "${{ github.repository }}" \
             --json databaseId,createdAt --limit 200 \
-            --jq "sort_by(.createdAt) | reverse | .[$KEEP_MINIMUM:] | .[] | select(.createdAt < \\"$CUTOFF\\") | .databaseId" \
+            --jq "sort_by(.createdAt) | reverse | .[$KEEP_MINIMUM:] | .[] | select(.createdAt < \"$CUTOFF\") | .databaseId" \
           | xargs -r -I{} gh run delete {} --repo "${{ github.repository }}"
+
+  cleanup-caches:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Prune caches from deleted branches
+        run: |
+          gh api "repos/${{ github.repository }}/actions/caches?per_page=100" \
+            --jq '.actions_caches[] | select(.ref | startswith("refs/pull/")) | .id' \
+          | xargs -r -I{} gh api -X DELETE "repos/${{ github.repository }}/actions/caches/{}" 2>/dev/null || true

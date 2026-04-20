@@ -18,17 +18,10 @@ extraConfig: |-
   transaction.state.log.min.isr=2
   default.replication.factor=3
   min.insync.replicas=2
+# externalAccess disabled — Dapr sidecars reach Kafka via in-cluster ClusterIP.
+# Enabling creates 6 LoadBalancer services that require cloud-provider-kind IP
+# allocation for 6 ports and can cause the Helm `--wait` to time out on
+# resource-constrained local clusters. Re-enable only if external Kafka access
+# from outside the cluster is required.
 externalAccess:
-  enabled: true
-  controller:
-    service:
-      loadBalancerNames:
-        - s1
-        - s2
-        - s3
-  broker:
-    service:
-      loadBalancerNames:
-        - b1
-        - b2
-        - b3
+  enabled: false
