@@ -180,19 +180,19 @@ ci: deps static-check test integration-test build
 	@echo "Local CI pipeline passed."
 
 #ci-run: @ Run GitHub Actions workflow locally via act (pass GH_ACCESS_TOKEN to avoid mise/aqua GitHub rate-limit inside the container)
+# Security: GITHUB_TOKEN passed via env, not argv, so it does not appear in `ps` output.
+# `act -s GITHUB_TOKEN` (no value) reads from the process environment.
 ci-run: deps
 	@if [ -z "$$GH_ACCESS_TOKEN" ]; then \
 		echo "Warning: GH_ACCESS_TOKEN not set — mise tool resolution inside act will hit the 60/hour unauthenticated rate limit."; \
 		act push --container-architecture linux/amd64 \
 			--artifact-server-path /tmp/act-artifacts \
-			--var ACT=true \
 			--concurrent-jobs 1; \
 	else \
-		act push --container-architecture linux/amd64 \
+		GITHUB_TOKEN="$$GH_ACCESS_TOKEN" act push --container-architecture linux/amd64 \
 			--artifact-server-path /tmp/act-artifacts \
-			--var ACT=true \
 			--concurrent-jobs 1 \
-			--secret GITHUB_TOKEN="$$GH_ACCESS_TOKEN"; \
+			-s GITHUB_TOKEN; \
 	fi
 
 #release: @ Create and push a new tag

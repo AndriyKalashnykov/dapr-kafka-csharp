@@ -89,9 +89,12 @@ jobs:
         run: make test
 
       - name: Upload test results
-        if: always()
+        # Skip under local `act` runs — act's embedded artifact-server speaks an
+        # older protobuf format than upload-artifact@v7 (mime_type unknown field),
+        # so 5 retries × 32s are wasted even with continue-on-error: true.
+        if: ${{ always() && !env.ACT }}
         continue-on-error: true
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: test-results
           path: '**/TestResults/**'
@@ -117,9 +120,10 @@ jobs:
         run: make integration-test
 
       - name: Upload integration test results
-        if: always()
+        # Skip under local `act` runs — see note on Upload test results above.
+        if: ${{ always() && !env.ACT }}
         continue-on-error: true
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: integration-test-results
           path: '**/TestResults/**'
@@ -130,8 +134,6 @@ jobs:
     needs: [build, test]
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # Skip under local `act` runs (Makefile's ci-run target passes `--var ACT=true`).
-    if: ${{ vars.ACT != 'true' }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -147,7 +149,13 @@ jobs:
           dapr --version
 
       - name: Initialize Dapr (standalone mode)
-        run: dapr init
+        # Idempotent: tolerates a pre-existing Dapr install when the workflow runs
+        # under `act` with the host's Docker socket (host may already have
+        # `dapr_placement` running from prior `dapr init`). No-op on fresh
+        # GitHub-hosted runners.
+        run: |
+          dapr uninstall --all 2>/dev/null || true
+          dapr init
 
       - name: End-to-end tests
         run: |
