@@ -1,22 +1,14 @@
 name: CI
 
 on:
+  # No paths-ignore: CI must always run so the `ci-pass` aggregator always
+  # reports a status. The repository's ruleset requires `ci-pass` before merge,
+  # and a path-filtered trigger would skip the workflow entirely on doc-only
+  # PRs — leaving nothing to report and deadlocking the merge.
   push:
     branches: [main]
     tags: ['v*']
-    paths-ignore:
-      - '**.md'
-      - '!CLAUDE.md'
-      - 'docs/**'
-      - 'LICENSE'
-      - '.gitignore'
   pull_request:
-    paths-ignore:
-      - '**.md'
-      - '!CLAUDE.md'
-      - 'docs/**'
-      - 'LICENSE'
-      - '.gitignore'
   workflow_call:
   workflow_dispatch:
 
