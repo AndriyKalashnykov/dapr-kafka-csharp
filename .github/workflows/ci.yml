@@ -4,8 +4,21 @@ on:
   push:
     branches: [main]
     tags: ['v*']
+    paths-ignore:
+      - '**.md'
+      - '!CLAUDE.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
   pull_request:
+    paths-ignore:
+      - '**.md'
+      - '!CLAUDE.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
   workflow_call:
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -14,30 +27,41 @@ concurrency:
 permissions:
   contents: read
 
-jobs:
-  lint:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+# Expose GITHUB_TOKEN to every step by default so tools that read it (mise/aqua, Renovate,
+# gh CLI) authenticate against the GitHub API instead of hitting the 60/hour unauthenticated
+# rate limit. GITHUB_TOKEN is auto-provisioned by GitHub Actions and passed through by `act`
+# via the Makefile's `--secret GITHUB_TOKEN=...` flag.
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
+jobs:
+  static-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
         with:
           global-json-file: global.json
           cache: true
           cache-dependency-path: '**/packages.lock.json'
 
-      - name: Lint
+      - name: Static check
         run: make lint
 
   build:
-    needs: [lint]
+    needs: [static-check]
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
+      - name: Set up .NET
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
         with:
           global-json-file: global.json
           cache: true
@@ -47,13 +71,15 @@ jobs:
         run: make build
 
   test:
-    needs: [lint]
+    needs: [static-check]
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
+      - name: Set up .NET
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
         with:
           global-json-file: global.json
           cache: true
@@ -62,74 +88,231 @@ jobs:
       - name: Test
         run: make test
 
+      - name: Upload test results
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: test-results
+          path: '**/TestResults/**'
+          retention-days: 7
+          if-no-files-found: ignore
+
+  integration-test:
+    needs: [static-check]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+
+      - name: Integration test
+        run: make integration-test
+
+      - name: Upload integration test results
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: integration-test-results
+          path: '**/TestResults/**'
+          retention-days: 7
+          if-no-files-found: ignore
+
+  e2e:
+    needs: [build, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Skip under local `act` runs (Makefile's ci-run target passes `--var ACT=true`).
+    if: ${{ vars.ACT != 'true' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v5
+        with:
+          global-json-file: global.json
+
+      - name: Install Dapr CLI
+        run: |
+          wget -q https://raw.githubusercontent.com/dapr/cli/master/install/install.sh -O - | /bin/bash -s 1.17.1
+          dapr --version
+
+      - name: Initialize Dapr (standalone mode)
+        run: dapr init
+
+      - name: End-to-end tests
+        run: |
+          if [ -x e2e/e2e-compose-test.sh ]; then
+            make e2e-compose
+          else
+            echo "No e2e script yet — run /test-coverage-analysis to scaffold"
+          fi
+
   docker:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [build, test]
+    needs: [build, test, integration-test]
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     permissions:
       contents: read
       packages: write
+      id-token: write   # cosign keyless OIDC (Sigstore Fulcio)
 
     env:
       REGISTRY: ghcr.io
 
     strategy:
+      fail-fast: false
       matrix:
         include:
           - app: producer
             dockerfile: producer/Dockerfile
+            boot_marker: 'Publishing data:'
           - app: consumer
             dockerfile: consumer/Dockerfile
+            boot_marker: 'Now listening on:|Application started'
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
 
-      - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
 
-      - name: Convert owner to lower case
-        run: |
-          echo "OWNER_LC=${OWNER,,}" >>${GITHUB_ENV}
-        env:
-          OWNER: '${{ github.repository_owner }}'
-
-      - uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Docker meta
+      - name: Docker metadata
         id: meta
         uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6
         with:
-          images: ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ matrix.app }}
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.app }}
           flavor: |
             latest=true
           tags: |
-            type=ref,event=tag
-            type=semver,pattern=v{{version}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
           labels: |
             org.opencontainers.image.vendor=Andriy Kalashnykov - andriykalashnykov@gmail.com
             org.opencontainers.image.title=Dapr Kafka ${{ matrix.app }}
             org.opencontainers.image.description=Dapr PubSub ${{ matrix.app }} with Apache Kafka in C#
             org.opencontainers.image.licenses=MIT
-            org.opencontainers.image.version=${{ github.ref_name }}
             io.artifacthub.package.readme-url=https://raw.githubusercontent.com/AndriyKalashnykov/dapr-kafka-csharp/main/README.md
             io.artifacthub.package.maintainers=[{"name":"Andriy Kalashnykov","email":"andriykalashnykov@gmail.com"}]
             io.artifacthub.package.license=MIT
 
-      - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
+      # Gate 1: Local single-arch build for scanning + smoke testing.
+      - name: Build image for scan
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          load: true
+          tags: ${{ matrix.app }}:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Gate 2: Trivy image scan (CRITICAL/HIGH blocking).
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          image-ref: ${{ matrix.app }}:scan
+          scanners: 'vuln,secret,misconfig'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+          ignore-unfixed: true
+
+      # Gate 3: Smoke test — boot-marker grep (NOT health-curl; both apps
+      # depend on the Dapr sidecar and would false-negative on /health).
+      - name: Smoke test
+        env:
+          APP: ${{ matrix.app }}
+          MARKER: ${{ matrix.boot_marker }}
+        run: |
+          set -euo pipefail
+          docker run -d --name="${APP}-smoke" "${APP}:scan"
+          echo "Waiting up to 30s for boot marker \"${MARKER}\"..."
+          end=$((SECONDS + 30))
+          while [ $SECONDS -lt $end ]; do
+            if docker logs "${APP}-smoke" 2>&1 | grep -qE "${MARKER}"; then
+              echo "PASS: ${APP} matched boot marker"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "FAIL: ${APP} did not hit boot marker within 30s"
+          docker logs "${APP}-smoke" || true
+          exit 1
+
+      - name: Cleanup smoke container
+        if: always()
+        run: docker rm -f "${{ matrix.app }}-smoke" 2>/dev/null || true
+
+      # All gates passed — publish multi-arch (Pattern A: clean image index).
+      - name: Log in to GHCR
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7
         with:
           context: .
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
           push: true
-          provenance: false
+          provenance: false   # Pattern A — keep image index free of unknown/unknown so GHCR "OS / Arch" tab renders.
+          sbom: false         # Pattern A — cosign keyless signing below provides supply-chain verification.
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Phase 2 (post-push): cosign keyless OIDC signing.
+      - name: Install cosign
+        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
+
+      - name: Sign image with cosign
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          set -euo pipefail
+          while IFS= read -r tag; do
+            [ -z "$tag" ] && continue
+            echo "-> cosign sign ${tag}@${DIGEST}"
+            cosign sign --yes "${tag}@${DIGEST}"
+          done <<< "${TAGS}"
+
+  ci-pass:
+    if: always()
+    needs: [static-check, build, test, integration-test, e2e, docker]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Verify all jobs passed
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "One or more required jobs failed"
+            exit 1
+          fi
+          if [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "One or more required jobs were cancelled"
+            exit 1
+          fi
+          echo "All required jobs passed or were skipped."

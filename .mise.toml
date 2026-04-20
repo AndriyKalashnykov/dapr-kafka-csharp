@@ -1,0 +1,34 @@
+[tools]
+# .NET SDK (source of truth: global.json sdk.version — mise reads global.json natively via .mise.toml disambiguation)
+dotnet = "10.0.201"
+
+# Node used only for Renovate CLI via npx
+node = "24"
+
+# Renovate-tracked via inline comments in this file (kubernetes + aqua backend tools)
+# renovate: datasource=github-releases depName=hadolint/hadolint
+"aqua:hadolint/hadolint" = "2.14.0"
+
+# renovate: datasource=github-releases depName=nektos/act
+"aqua:nektos/act" = "0.2.87"
+
+# renovate: datasource=github-releases depName=dapr/cli
+"aqua:dapr/cli" = "1.17.1"
+
+# renovate: datasource=github-releases depName=aquasecurity/trivy
+"aqua:aquasecurity/trivy" = "0.70.0"
+
+# renovate: datasource=github-releases depName=gitleaks/gitleaks
+"aqua:gitleaks/gitleaks" = "8.30.1"
+
+# renovate: datasource=github-releases depName=kubernetes-sigs/kind
+"aqua:kubernetes-sigs/kind" = "0.31.0"
+
+# renovate: datasource=github-releases depName=kubernetes-sigs/cloud-provider-kind
+"aqua:kubernetes-sigs/cloud-provider-kind" = "0.10.0"
+
+# renovate: datasource=github-releases depName=kubernetes/kubectl
+"aqua:kubernetes/kubectl" = "1.35.4"
+
+# renovate: datasource=github-releases depName=helm/helm
+"aqua:helm/helm" = "3.20.2"

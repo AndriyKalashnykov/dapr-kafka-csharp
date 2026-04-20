@@ -1,0 +1,9 @@
+# Allowlist historical findings that are NOT real secrets.
+# Format: <commit-hash>:<file-path>:<rule-id>
+
+# Self-signed test CA key from the legacy 3-node Kafka SASL+SSL compose setup.
+# The SSL/SASL configuration was removed in the 2026-04 Apache Kafka migration
+# (compose now uses plaintext). The key is a disposable self-generated artefact,
+# never connected to any real PKI. File was removed from the working tree in the
+# migration commit; this allowlist entry acknowledges the historical presence.
+477f93019ff9e2f19cc93c57a15dbac655d0ee27:scripts/truststore/ca-key:private-key:1

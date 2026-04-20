@@ -7,8 +7,12 @@
 
     <ItemGroup>
         <ProjectReference Include="..\models\models.csproj" />
-        <PackageReference Include="Dapr.AspNetCore" Version="1.17.7" />
-        <PackageReference Include="Dapr.Client" Version="1.17.7" />
+        <PackageReference Include="Dapr.AspNetCore" Version="1.17.9" />
+        <PackageReference Include="Dapr.Client" Version="1.17.9" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="producer.UnitTests" />
     </ItemGroup>
 
 </Project>

@@ -28,7 +28,11 @@ KAFKA_PASSWORD=kafka-client-password
 #KAFKA_PASSWORD=${KAFKA_PASSWORD:-$(openssl rand -hex 6)}
 
 # https://github.com/bitnami/charts/tree/main/bitnami/kafka#upgrading
-KAFKA_VERSION="32.4.3"
+# KAFKA_CHART_VERSION is exported by Makefile and Renovate-tracked there.
+# BITNAMI_KAFKA_LEGACY_TAG is a frozen bitnamilegacy tag — this K8s path has not yet
+# been migrated off Bitnami (see the Apache Kafka migration TODO in Makefile).
+KAFKA_VERSION="${KAFKA_CHART_VERSION:-32.4.3}"
+KAFKA_IMAGE_TAG="${BITNAMI_KAFKA_LEGACY_TAG:-4.0.0-debian-12-r10}"
 #KAFKA_UI_VERSION="0.7.5"
 
 
@@ -50,7 +54,7 @@ if [[ $SCRIPT_ACTION == "install"  ]]; then
     --version $KAFKA_VERSION \
     --set image.registry=docker.io \
     --set image.repository=bitnamilegacy/kafka \
-    --set image.tag=4.0.0-debian-12-r10 \
+    --set image.tag="${KAFKA_IMAGE_TAG}" \
     --set persistence.storageClass=standard \
     --set controller.persistence.enabled=true \
     --set controller.persistence.size=4Gi \
@@ -83,7 +87,7 @@ if [[ $SCRIPT_ACTION == "install"  ]]; then
     --set listeners.client.protocol="SASL_PLAINTEXT" \
     --wait
   
-  kubectl run $KAFKA_CLUSTER_NAME-client --restart='Never' --image docker.io/bitnamilegacy/kafka:4.0.0-debian-12-r10 --namespace $KAFKA_NAMESPACE --command -- sleep infinity
+  kubectl run $KAFKA_CLUSTER_NAME-client --restart='Never' --image "docker.io/bitnamilegacy/kafka:${KAFKA_IMAGE_TAG}" --namespace $KAFKA_NAMESPACE --command -- sleep infinity
   kubectl wait --for=condition=ready pod/$KAFKA_CLUSTER_NAME-client -n $KAFKA_NAMESPACE
   kubectl cp --namespace $KAFKA_NAMESPACE $SCRIPT_PARENT_DIR/kafka/client.properties $KAFKA_CLUSTER_NAME-client:/tmp/client.properties
   

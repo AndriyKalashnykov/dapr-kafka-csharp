@@ -16,14 +16,28 @@ spec:
       annotations:
         dapr.io/enabled: "true"
         dapr.io/app-id: "producer"
-        dapr.io/app-port: "3000"
+        # No dapr.io/app-port: producer is a console app and never listens on HTTP.
+        # Setting app-port makes the sidecar probe for a listener that doesn't exist
+        # and marks the pod as NotReady even though publishing works.
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1654
+        fsGroup: 1654
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: producer
           image: docker.io/andriykalashnykov/producer:v1.0.0
-          ports:
-            - containerPort: 3000
           imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1654
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           resources:
             requests:
               cpu: 100m

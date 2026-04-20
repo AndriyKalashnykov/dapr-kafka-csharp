@@ -14,16 +14,21 @@
   "prHourlyLimit": 0,
   "platformAutomerge": true,
   "automerge": true,
-  "automergeType": "branch",
+  "automergeType": "pr",
   "automergeStrategy": "squash",
   "ignoreTests": false,
   "enabledManagers": [
     "docker-compose",
     "dockerfile",
     "github-actions",
+    "kubernetes",
     "nuget",
+    "mise",
     "custom.regex"
   ],
+  "kubernetes": {
+    "managerFilePatterns": ["/^k8s/.+\\.yaml$/"]
+  },
   "vulnerabilityAlerts": {
     "labels": [
       "security"
@@ -34,47 +39,35 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "Track act version in Makefile",
+      "description": "Update Makefile plain version constants via inline renovate comments (no colons in value)",
       "managerFilePatterns": ["/^Makefile$/"],
       "matchStrings": [
-        "ACT_VERSION\\s*:=\\s*(?<currentValue>.*?)\\n"
-      ],
-      "depNameTemplate": "nektos/act",
-      "datasourceTemplate": "github-releases",
-      "extractVersionTemplate": "^v(?<version>.*)$"
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)( versioning=(?<versioning>\\S+))?( registryUrl=(?<registryUrl>\\S+))?\\n[A-Z_]+\\s*:=\\s*(?<currentValue>[^:\\s]+)\\s*$"
+      ]
     },
     {
       "customType": "regex",
-      "description": "Track nvm version in Makefile",
+      "description": "Update Makefile Docker image ref constants with optional digest (repo:tag@sha256:...)",
       "managerFilePatterns": ["/^Makefile$/"],
       "matchStrings": [
-        "NVM_VERSION\\s*:=\\s*(?<currentValue>.*?)\\n"
-      ],
-      "depNameTemplate": "nvm-sh/nvm",
-      "datasourceTemplate": "github-releases",
-      "extractVersionTemplate": "^v(?<version>.*)$"
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)( versioning=(?<versioning>\\S+))?\\n[A-Z_]+\\s*:=\\s*\\S+?:(?<currentValue>[^@\\s]+)(@(?<currentDigest>sha256:[a-f0-9]+))?"
+      ]
     },
     {
       "customType": "regex",
-      "description": "Track hadolint version in Makefile",
-      "managerFilePatterns": ["/^Makefile$/"],
+      "description": "Update .mise.toml tool pins via inline renovate comments",
+      "managerFilePatterns": ["/^\\.mise\\.toml$/"],
       "matchStrings": [
-        "HADOLINT_VERSION\\s*:=\\s*(?<currentValue>.*?)\\n"
-      ],
-      "depNameTemplate": "hadolint/hadolint",
-      "datasourceTemplate": "github-releases",
-      "extractVersionTemplate": "^v(?<version>.*)$"
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)( versioning=(?<versioning>\\S+))?\\n[\"a-zA-Z0-9_/:-]+\\s*=\\s*\"(?<currentValue>[^\"]+)\""
+      ]
     },
     {
       "customType": "regex",
-      "description": "Track Dapr version in Makefile",
-      "managerFilePatterns": ["/^Makefile$/"],
+      "description": "Update .env Docker image pins with optional digest (KEY=<repo>:<tag>@sha256:...)",
+      "managerFilePatterns": ["/^\\.env$/"],
       "matchStrings": [
-        "DAPR_VERSION\\s*:=\\s*(?<currentValue>.*?)\\n"
-      ],
-      "depNameTemplate": "dapr/dapr",
-      "datasourceTemplate": "github-releases",
-      "extractVersionTemplate": "^v(?<version>.*)$"
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)( versioning=(?<versioning>\\S+))?\\n[A-Z_]+=\\S+?:(?<currentValue>[^@\\s]+)(@(?<currentDigest>sha256:[a-f0-9]+))?"
+      ]
     }
   ],
   "packageRules": [
@@ -93,7 +86,7 @@
       "groupName": "GitHub Actions"
     },
     {
-      "description": "Group .NET Docker images, minor and patch only",
+      "description": "Group .NET Docker images (minor/patch only)",
       "groupName": "Dotnet Docker images",
       "matchPackageNames": [
         "dotnet-sdk",
@@ -112,25 +105,24 @@
       "pinDigests": false
     },
     {
-      "description": "Group XUnit test dependencies",
-      "groupName": "XUnit",
-      "matchPackageNames": [
-        "/^xunit/"
-      ]
-    },
-    {
       "description": "Group Dapr SDK dependencies",
       "groupName": "Dapr SDK",
-      "matchPackageNames": [
-        "/^Dapr/"
-      ]
+      "matchPackageNames": ["Dapr.*"]
     },
     {
-      "description": "Group Makefile tool versions",
+      "description": "Group Makefile and .mise.toml tool versions into a single PR",
       "matchManagers": [
         "custom.regex"
       ],
-      "groupName": "Makefile tools"
+      "groupName": "tool versions"
+    },
+    {
+      "description": "Self-owned app images are released by the project; do not update via Renovate",
+      "matchPackageNames": [
+        "andriykalashnykov/producer",
+        "andriykalashnykov/consumer"
+      ],
+      "enabled": false
     }
   ]
 }

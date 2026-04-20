@@ -4,12 +4,12 @@
     "net10.0": {
       "Dapr.AspNetCore": {
         "type": "Direct",
-        "requested": "[1.17.7, )",
-        "resolved": "1.17.7",
-        "contentHash": "yRXbCjQQ+Mm5wtCVfwzsIb8eliS16ekUQzGqdepW9LkfK5gdESyM4V1/ZijvmiFJEBJgXCCiX4rp0RK4LaMaRQ==",
+        "requested": "[1.17.9, )",
+        "resolved": "1.17.9",
+        "contentHash": "9YqQ+7fDs/ci5ebavcoIz0ykj2BwFxrCpccG4FowcSP0lf947ygsFjN/2aRBz0kjSB7GZsxslq6uTaFLJY6E7g==",
         "dependencies": {
-          "Dapr.Client": "1.17.7",
-          "Dapr.Common": "1.17.7",
+          "Dapr.Client": "1.17.9",
+          "Dapr.Common": "1.17.9",
           "Google.Api.CommonProtos": "2.17.0",
           "Google.Protobuf": "3.34.0",
           "Grpc.Net.Client": "2.76.0"
@@ -17,12 +17,12 @@
       },
       "Dapr.Client": {
         "type": "Direct",
-        "requested": "[1.17.7, )",
-        "resolved": "1.17.7",
-        "contentHash": "YGA46q/Qr4VupRGTx3VHph3puXqYrcV4twzDBsx4r9Gm2enrOyHjR/CF+oNqaGW9EfNd26ceMcR295FqPKqEIQ==",
+        "requested": "[1.17.9, )",
+        "resolved": "1.17.9",
+        "contentHash": "hfmnGnuij8jqiKSONfLAB5rzse+NtjbpDj0+7CC808aqSzw8+PKH5pSX/7tqS3Z4TX4E5CU12cmRfQ9DpfVkDQ==",
         "dependencies": {
-          "Dapr.Common": "1.17.7",
-          "Dapr.Protos": "1.17.7",
+          "Dapr.Common": "1.17.9",
+          "Dapr.Protos": "1.17.9",
           "Google.Api.CommonProtos": "2.17.0",
           "Google.Protobuf": "3.34.0",
           "Grpc.Net.Client": "2.76.0"
@@ -30,10 +30,10 @@
       },
       "Dapr.Common": {
         "type": "Transitive",
-        "resolved": "1.17.7",
-        "contentHash": "08tSD6hBqGUq8hUdqrLmcwtMRsEwKAuxXqC3pgAJtyUIxP8xbmYUP2tv6us8oRNYQSr/vMP4hlfb9NGk+34j9Q==",
+        "resolved": "1.17.9",
+        "contentHash": "0KluEFOk6Dvgqpkmq12VPtaIO+LNEfjAVCQtXJJiQmRAFLBKvRCrlL4b2BOyozn2ccRBO1d1M3D+2WxfG70NMA==",
         "dependencies": {
-          "Dapr.Protos": "1.17.7",
+          "Dapr.Protos": "1.17.9",
           "Google.Api.CommonProtos": "2.17.0",
           "Google.Protobuf": "3.34.0",
           "Grpc.Net.Client": "2.76.0"
@@ -41,8 +41,8 @@
       },
       "Dapr.Protos": {
         "type": "Transitive",
-        "resolved": "1.17.7",
-        "contentHash": "jKU/tbkmh29z+hnNGuisgaD233zjOcf1IAnbRL1Oovt6ryMZemiBpnrtcpOOEnCroCx5kBbJVAKwQqIdQiU97A==",
+        "resolved": "1.17.9",
+        "contentHash": "SbuEevY/tNubnaqt2QFj6TK8GcHRibwhH2T61LKQByMCazTFdHuhmI2FQ8eo3LA9dEipS7wROAHbTkHvon/Iag==",
         "dependencies": {
           "Google.Api.CommonProtos": "2.17.0",
           "Google.Protobuf": "3.34.0",
