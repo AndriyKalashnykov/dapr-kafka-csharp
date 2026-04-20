@@ -4,9 +4,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](https://opensource.org/licenses/MIT)
 [![Renovate enabled](https://img.shields.io/badge/renovate-enabled-brightgreen.svg)](https://app.renovatebot.com/dashboard#github/AndriyKalashnykov/dapr-kafka-csharp)
 
-# Dapr Kafka PubSub in C#
+# Dapr Pub/Sub on Apache Kafka — .NET 10 Reference
 
-Dapr pub/sub .NET demo — a producer/consumer pipeline over Apache Kafka via the Dapr sidecar pattern. Console-app producer publishes `SampleMessage` events every 10 seconds; ASP.NET Core consumer subscribes over CloudEvents. Runs locally via Docker Compose (`apache/kafka`) or on Kubernetes via KinD + cloud-provider-kind (Bitnami Helm chart). Uses the `.slnx` solution format; tests with TUnit + FakeItEasy.
+Two services — a console producer and an ASP.NET Core consumer — exchange `SampleMessage` events through Dapr sidecars backed by Apache Kafka. The consumer uses Dapr's CloudEvents middleware to unwrap payloads and filters on `event.type == com.dapr.event.sent`.
+
+Runs locally via Docker Compose (`apache/kafka`) or on Kubernetes via KinD + cloud-provider-kind (Bitnami Helm chart for the broker). The test pyramid covers three layers on TUnit + FakeItEasy: unit (in-process, mocked), integration (Testcontainers), and end-to-end (Compose or KinD). The tag-triggered release pipeline Trivy-scans the image, smoke-tests it via boot-marker grep, publishes multi-arch (amd64/arm64) to GHCR, and cosign-signs by digest.
 
 ```mermaid
 C4Context
