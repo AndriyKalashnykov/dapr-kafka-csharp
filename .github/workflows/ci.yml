@@ -200,11 +200,13 @@ jobs:
 
   # E2E against the K8s deployment path: KinD + Dapr + Strimzi operator +
   # producer/consumer Deployments, asserting message flow via kubectl logs.
-  # Skipped under `act` (helm/kind-action's containerd-in-docker setup doesn't
-  # come up reliably inside act's nested runtime).
+  # Note: helm/kind-action's nested containerd doesn't come up reliably under
+  # `act`; skip this job locally via `act push --workflows .github/workflows/ci.yml --job e2e`
+  # (or whichever jobs you want to exercise). `make ci-run` does not include
+  # an act-side skip because `env` is not available in job-level `if:`.
   e2e-kind:
     needs: [changes, build, test]
-    if: needs.changes.outputs.code == 'true' && !env.ACT
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
