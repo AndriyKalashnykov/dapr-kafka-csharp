@@ -8,7 +8,7 @@
 
 Two services — a console producer and an ASP.NET Core consumer — exchange `SampleMessage` events through Dapr sidecars backed by Apache Kafka. The consumer uses Dapr's CloudEvents middleware to unwrap payloads and filters on `event.type == com.dapr.event.sent`.
 
-Runs locally via Docker Compose (`apache/kafka`) or on Kubernetes via KinD + cloud-provider-kind (Strimzi operator manages upstream Apache Kafka in KRaft mode). The test pyramid covers three layers on TUnit + FakeItEasy: unit (in-process, mocked), integration (Testcontainers), and end-to-end (Compose or KinD). The tag-triggered release pipeline Trivy-scans the image, smoke-tests it via boot-marker grep, publishes multi-arch (amd64/arm64) to GHCR, and cosign-signs by digest.
+Runs locally via Docker Compose (`apache/kafka`) or on Kubernetes via KinD + cloud-provider-kind (Strimzi operator manages upstream Apache Kafka in KRaft mode). The test pyramid covers three layers on TUnit + FakeItEasy: unit (in-process, mocked), integration (in-process via `WebApplicationFactory` + FakeItEasy), and end-to-end (Compose or KinD). The tag-triggered release pipeline Trivy-scans the image, smoke-tests it via boot-marker grep, container-structure-tests metadata, runs an OWASP ZAP DAST baseline against the consumer, publishes multi-arch (amd64/arm64) to GHCR, and cosign-signs by digest.
 
 ```mermaid
 C4Context
@@ -24,7 +24,7 @@ C4Context
 
 | Component | Technology | Rationale |
 |-----------|-----------|-----------|
-| Language | C# on .NET 10 (`10.0.201` via `global.json`) | LTS through 2028-11; matches Dapr.AspNetCore 10 support matrix |
+| Language | C# on .NET 10 (`10.0.203` via `global.json`) | LTS through 2028-11; matches Dapr.AspNetCore 10 support matrix |
 | Runtime image | `mcr.microsoft.com/dotnet/aspnet:10.0` | Required by Dapr.AspNetCore (pulls in ASP.NET runtime) |
 | Dapr SDK | `Dapr.AspNetCore`, `Dapr.Client` | Idiomatic sidecar integration with CloudEvents unwrapping |
 | Dapr CLI | 1.17.1 (mise-pinned) | Runtime chart is 1.17.5 via `DAPR_CHART_VERSION`; CLI and runtime version independently |
@@ -54,7 +54,7 @@ The `dapr-run-*` targets invoke `dapr run --app-id ... -- dotnet run`. Without t
 | [Git](https://git-scm.com/) | 2.x+ | Version control |
 | [GNU Make](https://www.gnu.org/software/make/) | 3.81+ | Build orchestration |
 | [mise](https://mise.jdx.dev/) | latest | Installs the CLI toolchain (hadolint, act, dapr, trivy, gitleaks) per `.mise.toml` |
-| [.NET SDK](https://dotnet.microsoft.com/download) | 10.0.201 (from `global.json`) | Build and run C# projects |
+| [.NET SDK](https://dotnet.microsoft.com/download) | 10.0.203 (from `global.json`) | Build and run C# projects |
 | [Docker](https://www.docker.com/) | latest | Run Kafka locally, build container images |
 | [Dapr CLI](https://docs.dapr.io/getting-started/install-dapr-cli/) | 1.17.1 (mise-pinned) | Run Dapr sidecars locally |
 | [KinD](https://kind.sigs.k8s.io/) | 0.31.0 (mise-pinned) | Local Kubernetes cluster (for `make kind-up`) |
@@ -142,7 +142,6 @@ flowchart LR
 ```text
 producer/           Console app — publishes SampleMessage every 10s
   Program.cs        DaprClient.PublishEventAsync("sampletopic", "sampletopic", ...)
-  deploy/           Dapr component YAML for local standalone mode
 
 consumer/           ASP.NET Core web app — listens on :6000 (AppBindUrl constant)
   Program.cs        Host builder, binds http://*:6000
@@ -246,7 +245,7 @@ Cleanup:
 
 ```bash
 make k8s-undeploy   # workloads + Kafka + Dapr + cluster
-make kind-down      # just tear down the cluster
+make kind-down      # tear down only the cluster
 ```
 
 ## Available Make Targets
@@ -331,13 +330,15 @@ GitHub Actions runs on push to `main`, tag pushes (`v*`), and pull requests. The
 
 | Job | Triggers | Steps |
 |-----|----------|-------|
-| **static-check** | push, PR, tags | Format check, warnings-as-errors, hadolint |
+| **changes** | push, PR, tags | `dorny/paths-filter` detector — sets `outputs.code` so doc-only changes skip heavy jobs without deadlocking the Rulesets gate. Force-true on `refs/tags/*` |
+| **static-check** | code change | Format check, warnings-as-errors, hadolint |
 | **build** | after static-check | Build the solution |
 | **test** | after static-check | Run unit tests, upload results artifact |
-| **integration-test** | after static-check | Run integration tests (`Category=Integration`), upload results |
-| **e2e** | after build + test | End-to-end tests (when scaffolded) |
-| **docker** | tag push (`v*`) | Pre-push hardening (Trivy image scan + smoke test), multi-arch build, push to GHCR, cosign keyless signing |
-| **ci-pass** | always | Aggregate pass/fail gate |
+| **integration-test** | after static-check | Run integration tests, upload results artifact |
+| **e2e** | after build + test | End-to-end tests via Docker Compose (Dapr sidecars + `apache/kafka` broker, full publish→subscribe round-trip) |
+| **e2e-kind** | after build + test | End-to-end tests via KinD (`helm/kind-action` → Dapr → Strimzi operator + Kafka CR → workloads → `make k8s-test`) |
+| **docker** | tag push (`v*`) | Pre-push hardening (Trivy + container-structure-test + smoke + DAST), multi-arch build, push to GHCR, cosign keyless signing |
+| **ci-pass** | always | Aggregate pass/fail gate (single required status check for branch protection) |
 
 ### Pre-push image hardening
 
@@ -347,7 +348,9 @@ The `docker` job runs the following gates **before** any image is pushed to GHCR
 |---|------|---------|------|
 | 1 | Build local single-arch image | Build regressions on the runner architecture | `docker/build-push-action` with `load: true` |
 | 2 | **Trivy image scan** (CRITICAL/HIGH blocking) | CVEs in the base image, OS packages, build layers | `aquasecurity/trivy-action` with `image-ref:` |
+| 2.5 | **Container structure test** | Image contents and metadata drift — required `.dll` files at `/app`, non-root `USER` UID, ENTRYPOINT/WORKDIR match the Dockerfile, dotnet runtime resolves | `GoogleContainerTools/container-structure-test` against `tests/structure/{producer,consumer}.yaml` |
 | 3 | **Smoke test** | Image boots correctly on its own (boot-marker grep; NOT a health-curl, since both apps depend on the Dapr sidecar) | `docker run` + `docker logs` |
+| 3.5 | **DAST — OWASP ZAP baseline** (consumer only) | Passive findings on the consumer's `:6000` endpoint (security headers, TLS posture). Producer skipped — console app, no HTTP listener. `continue-on-error` because the Dapr-coupled consumer rejects every non-CloudEvents request; report uploaded as `zap-baseline-consumer` artifact for triage rather than gating | `zaproxy/zaproxy:stable zap-baseline.py` |
 | 4 | Multi-arch build + push | Publishes for both `linux/amd64` and `linux/arm64` | `docker/build-push-action` |
 | 5 | **Cosign keyless OIDC signing** | Sigstore signature on the manifest digest | `sigstore/cosign-installer` + `cosign sign --yes ...@<digest>` |
 
