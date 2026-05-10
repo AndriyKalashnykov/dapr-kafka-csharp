@@ -17,6 +17,15 @@ CONSUMER_IMG   ?= andriykalashnykov/consumer:$(CURRENTTAG)
 # === KinD cluster settings ===
 KIND_CLUSTER_NAME := dapr-kafka
 
+# Bind every kubectl call to the project's kind context so a sibling project's
+# `kubectl config use-context` cannot silently redirect a recipe to the wrong
+# cluster. Per common/agents.md "Multi-session kubectl context safety".
+KUBECTL := kubectl --context=kind-$(KIND_CLUSTER_NAME)
+
+# === Kubernetes namespaces (single source of truth across recipes) ===
+DAPR_APP_NS    := dapr-app
+DAPR_SYSTEM_NS := dapr-system
+
 # renovate: datasource=docker depName=kindest/node
 KIND_NODE_IMAGE := kindest/node:v1.35.0@sha256:452d707d4862f52530247495d180205e029056831160e22870e37e3f6c1ac31f
 
@@ -27,18 +36,15 @@ MERMAID_CLI_VERSION := 11.12.0
 # renovate: datasource=github-releases depName=dapr/dapr
 DAPR_CHART_VERSION := 1.17.5
 
-# renovate: datasource=helm depName=kafka registryUrl=https://charts.bitnami.com/bitnami
-KAFKA_CHART_VERSION := 32.4.3
+# Strimzi operator (upstream Apache Kafka on K8s, replaces the Bitnami chart path).
+# renovate: datasource=github-releases depName=strimzi/strimzi-kafka-operator
+STRIMZI_OPERATOR_VERSION := 0.46.0
 
 # renovate: datasource=docker depName=apache/kafka
 KAFKA_IMAGE_VERSION := 4.0.2
 
-# Legacy Bitnami image tag — still consumed by scripts/kafka.sh (K8s Helm chart path).
-# Bitnami moved to a paid registry in 2025; bitnamilegacy/* is a frozen community archive.
-# Deferred migration: switch K8s path off Bitnami chart to a maintained alternative (strimzi or Apache Kafka image via a custom chart).
-BITNAMI_KAFKA_LEGACY_TAG := 4.0.0-debian-12-r10
-
-export KAFKA_CHART_VERSION KAFKA_IMAGE_VERSION BITNAMI_KAFKA_LEGACY_TAG DAPR_CHART_VERSION
+export KAFKA_IMAGE_VERSION DAPR_CHART_VERSION STRIMZI_OPERATOR_VERSION
+export KIND_CLUSTER_NAME
 
 #help: @ List available tasks
 help:
@@ -116,7 +122,7 @@ e2e-compose:
 
 #vulncheck: @ Audit NuGet packages for known CVEs
 vulncheck: deps
-	@set -e; \
+	@set -eo pipefail; \
 	for proj in consumer models producer; do \
 		echo "--- $$proj ---"; \
 		dotnet list $$proj/$$proj.csproj package --vulnerable --include-transitive 2>&1 | tee /tmp/$$proj-vuln.log; \
@@ -299,14 +305,14 @@ kind-list: deps-k8s
 k8s-dapr-deploy: deps-k8s
 	@helm repo add dapr https://dapr.github.io/helm-charts/
 	@helm repo update
-	@helm upgrade --install dapr dapr/dapr --set version=$(DAPR_CHART_VERSION) --namespace dapr-system --create-namespace --wait
-	@helm upgrade --install dapr-dashboard dapr/dapr-dashboard --set version=$(DAPR_CHART_VERSION) --namespace dapr-system --wait
-	@kubectl get pods --namespace dapr-system
+	@helm upgrade --install dapr dapr/dapr --set version=$(DAPR_CHART_VERSION) --namespace $(DAPR_SYSTEM_NS) --create-namespace --wait --kube-context kind-$(KIND_CLUSTER_NAME)
+	@helm upgrade --install dapr-dashboard dapr/dapr-dashboard --set version=$(DAPR_CHART_VERSION) --namespace $(DAPR_SYSTEM_NS) --wait --kube-context kind-$(KIND_CLUSTER_NAME)
+	@$(KUBECTL) get pods --namespace $(DAPR_SYSTEM_NS)
 
 #k8s-dapr-undeploy: @ Undeploy Dapr from k8s
 k8s-dapr-undeploy: deps-k8s
-	@helm uninstall dapr --namespace dapr-system && \
-	helm uninstall dapr-dashboard --namespace dapr-system
+	@helm uninstall dapr --namespace $(DAPR_SYSTEM_NS) --kube-context kind-$(KIND_CLUSTER_NAME) && \
+	helm uninstall dapr-dashboard --namespace $(DAPR_SYSTEM_NS) --kube-context kind-$(KIND_CLUSTER_NAME)
 
 #k8s-kafka-deploy: @ Deploy Kafka to k8s
 k8s-kafka-deploy: deps-k8s
@@ -323,19 +329,19 @@ k8s-image-load: deps-k8s image-build
 
 #k8s-workload-deploy: @ Deploy workloads to k8s (substitutes :$(CURRENTTAG) for the :v1.0.0 placeholder in manifests)
 k8s-workload-deploy: k8s-image-load
-	@kubectl apply -f ./k8s/ns.yaml
-	@kubectl apply -f ./k8s/kafka-pubsub.yaml --namespace=dapr-app --wait=true
-	@sed "s|:v1.0.0|:$(CURRENTTAG)|g" ./k8s/producer.yaml | kubectl apply --namespace=dapr-app --wait=true -f -
-	@sed "s|:v1.0.0|:$(CURRENTTAG)|g" ./k8s/consumer.yaml | kubectl apply --namespace=dapr-app --wait=true -f -
-	@kubectl wait --namespace dapr-app --for=condition=ready pod --selector=app=consumer --timeout=120s
-	@kubectl wait --namespace dapr-app --for=condition=ready pod --selector=app=producer --timeout=120s
+	@$(KUBECTL) apply -f ./k8s/ns.yaml
+	@$(KUBECTL) apply -f ./k8s/kafka-pubsub.yaml --namespace=$(DAPR_APP_NS) --wait=true
+	@sed "s|:v1.0.0|:$(CURRENTTAG)|g" ./k8s/producer.yaml | $(KUBECTL) apply --namespace=$(DAPR_APP_NS) --wait=true -f -
+	@sed "s|:v1.0.0|:$(CURRENTTAG)|g" ./k8s/consumer.yaml | $(KUBECTL) apply --namespace=$(DAPR_APP_NS) --wait=true -f -
+	@$(KUBECTL) wait --namespace $(DAPR_APP_NS) --for=condition=ready pod --selector=app=consumer --timeout=120s
+	@$(KUBECTL) wait --namespace $(DAPR_APP_NS) --for=condition=ready pod --selector=app=producer --timeout=120s
 
 #k8s-workload-undeploy: @ Undeploy workloads from k8s
 k8s-workload-undeploy: deps-k8s
-	@kubectl delete -f ./k8s/producer.yaml --namespace=dapr-app --wait=true --ignore-not-found=true
-	@kubectl delete -f ./k8s/consumer.yaml --namespace=dapr-app --wait=true --ignore-not-found=true
-	@kubectl delete -f ./k8s/kafka-pubsub.yaml --namespace=dapr-app --wait=true --ignore-not-found=true
-	@kubectl delete -f ./k8s/ns.yaml --ignore-not-found=true
+	@$(KUBECTL) delete -f ./k8s/producer.yaml --namespace=$(DAPR_APP_NS) --wait=true --ignore-not-found=true
+	@$(KUBECTL) delete -f ./k8s/consumer.yaml --namespace=$(DAPR_APP_NS) --wait=true --ignore-not-found=true
+	@$(KUBECTL) delete -f ./k8s/kafka-pubsub.yaml --namespace=$(DAPR_APP_NS) --wait=true --ignore-not-found=true
+	@$(KUBECTL) delete -f ./k8s/ns.yaml --ignore-not-found=true
 
 #kind-deploy: @ Full KinD deploy (cluster + cloud-provider-kind + Dapr + Kafka + workloads)
 kind-deploy: kind-create kind-setup k8s-dapr-deploy k8s-kafka-deploy k8s-workload-deploy
@@ -357,25 +363,25 @@ k8s-undeploy: k8s-workload-undeploy k8s-kafka-undeploy k8s-dapr-undeploy kind-de
 
 #k8s-test: @ Verify K8s deployment (pods running, messages flowing)
 k8s-test: deps-k8s
-	@echo "=== Checking pods in dapr-app namespace ==="
-	@kubectl get pods -n dapr-app -o wide
+	@echo "=== Checking pods in $(DAPR_APP_NS) namespace ==="
+	@$(KUBECTL) get pods -n $(DAPR_APP_NS) -o wide
 	@echo ""
 	@echo "=== Waiting for consumer to be ready ==="
-	@kubectl wait --namespace dapr-app --for=condition=ready pod --selector=app=consumer --timeout=120s
+	@$(KUBECTL) wait --namespace $(DAPR_APP_NS) --for=condition=ready pod --selector=app=consumer --timeout=120s
 	@echo ""
 	@echo "=== Verifying producer container is running ==="
-	@kubectl get pods -l app=producer -n dapr-app -o jsonpath='{.items[0].status.containerStatuses[?(@.name=="producer")].state.running}' | grep -q startedAt || \
-		{ echo "Error: producer container not running"; kubectl logs -l app=producer -c producer -n dapr-app --tail=5; exit 1; }
+	@$(KUBECTL) get pods -l app=producer -n $(DAPR_APP_NS) -o jsonpath='{.items[0].status.containerStatuses[?(@.name=="producer")].state.running}' | grep -q startedAt || \
+		{ echo "Error: producer container not running"; $(KUBECTL) logs -l app=producer -c producer -n $(DAPR_APP_NS) --tail=5; exit 1; }
 	@echo "Producer container is running."
 	@echo ""
 	@echo "=== Producer logs (last 10 lines) ==="
-	@kubectl logs -l app=producer -c producer -n dapr-app --tail=10
+	@$(KUBECTL) logs -l app=producer -c producer -n $(DAPR_APP_NS) --tail=10
 	@echo ""
 	@echo "=== Consumer logs (last 10 lines) ==="
-	@kubectl logs -l app=consumer -c consumer -n dapr-app --tail=10
+	@$(KUBECTL) logs -l app=consumer -c consumer -n $(DAPR_APP_NS) --tail=10
 	@echo ""
 	@echo "=== Verifying message flow (consumer received messages) ==="
-	@kubectl logs -l app=consumer -c consumer -n dapr-app --tail=50 | grep -q "Message is delivered" || \
+	@$(KUBECTL) logs -l app=consumer -c consumer -n $(DAPR_APP_NS) --tail=50 | grep -q "Message is delivered" || \
 		{ echo "Error: consumer has not received any messages yet"; exit 1; }
 	@echo "Messages flowing: producer -> Kafka -> consumer via Dapr PubSub."
 	@echo ""

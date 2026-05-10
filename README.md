@@ -8,14 +8,14 @@
 
 Two services — a console producer and an ASP.NET Core consumer — exchange `SampleMessage` events through Dapr sidecars backed by Apache Kafka. The consumer uses Dapr's CloudEvents middleware to unwrap payloads and filters on `event.type == com.dapr.event.sent`.
 
-Runs locally via Docker Compose (`apache/kafka`) or on Kubernetes via KinD + cloud-provider-kind (Bitnami Helm chart for the broker). The test pyramid covers three layers on TUnit + FakeItEasy: unit (in-process, mocked), integration (Testcontainers), and end-to-end (Compose or KinD). The tag-triggered release pipeline Trivy-scans the image, smoke-tests it via boot-marker grep, publishes multi-arch (amd64/arm64) to GHCR, and cosign-signs by digest.
+Runs locally via Docker Compose (`apache/kafka`) or on Kubernetes via KinD + cloud-provider-kind (Strimzi operator manages upstream Apache Kafka in KRaft mode). The test pyramid covers three layers on TUnit + FakeItEasy: unit (in-process, mocked), integration (Testcontainers), and end-to-end (Compose or KinD). The tag-triggered release pipeline Trivy-scans the image, smoke-tests it via boot-marker grep, publishes multi-arch (amd64/arm64) to GHCR, and cosign-signs by digest.
 
 ```mermaid
 C4Context
     title System Context — Dapr Kafka PubSub Demo
     Person(operator, "Operator", "Developer or CI running the demo locally or on KinD")
     System(dkc, "Dapr Kafka PubSub", "Pub/sub demo decoupling .NET producer and consumer from Kafka via Dapr sidecars")
-    System_Ext(kafka, "Apache Kafka", "External message broker (4.0.2 local / 4.0.0 K8s)")
+    System_Ext(kafka, "Apache Kafka", "Upstream Apache Kafka (KRaft) — 4.2.0 local / 4.0.0 K8s via Strimzi")
     Rel(operator, dkc, "Runs", "make dapr-run-* / kind-up")
     Rel(dkc, kafka, "Publishes / subscribes via Dapr sidecar", "Kafka protocol")
 ```
@@ -28,7 +28,7 @@ C4Context
 | Runtime image | `mcr.microsoft.com/dotnet/aspnet:10.0` | Required by Dapr.AspNetCore (pulls in ASP.NET runtime) |
 | Dapr SDK | `Dapr.AspNetCore`, `Dapr.Client` | Idiomatic sidecar integration with CloudEvents unwrapping |
 | Dapr CLI | 1.17.1 (mise-pinned) | Runtime chart is 1.17.5 via `DAPR_CHART_VERSION`; CLI and runtime version independently |
-| Message broker | Apache Kafka 4.x — 4.0.2 (Compose) / 4.0.0 (K8s) | No Zookeeper; `apache/kafka` official image for local Compose; Bitnami Helm chart on `bitnamilegacy/kafka:4.0.0-debian-12-r10` for K8s (migration deferred) |
+| Message broker | Apache Kafka 4.x — 4.2.0 (Compose) / 4.0.0 (K8s) | No Zookeeper; `apache/kafka` official image for local Compose; Strimzi operator on K8s pulling the matching `quay.io/strimzi/kafka` image |
 | PubSub component | `sampletopic` (pubsub.kafka) | Topic name and component name match by convention |
 | Container tooling | Docker + Buildx (multi-arch amd64/arm64) | ARM64 coverage for Apple Silicon and Graviton |
 | Kubernetes | KinD + cloud-provider-kind + Dapr Helm chart | Kind-team maintained, single Docker network, host-side LoadBalancer daemon |
@@ -77,9 +77,9 @@ C4Container
     Person(operator, "Operator")
     System_Boundary(app, "Dapr Kafka PubSub") {
         Container(producer, "Producer", ".NET 10 console, Dapr.Client 1.17.9", "Publishes SampleMessage every 10s")
-        Container(producer_dapr, "Dapr Sidecar", "daprd 1.17, injected at deploy-time", "Produces to Kafka via pubsub component")
+        Container(producer_dapr, "Dapr Sidecar", "daprd 1.17.5, injected at deploy-time", "Produces to Kafka via pubsub component")
         Container(consumer, "Consumer", ".NET 10, ASP.NET Core, Dapr.AspNetCore 1.17.9", "Handles POST /sampletopic on :6000")
-        Container(consumer_dapr, "Dapr Sidecar", "daprd 1.17, injected at deploy-time", "Subscribes to Kafka, delivers CloudEvents")
+        Container(consumer_dapr, "Dapr Sidecar", "daprd 1.17.5, injected at deploy-time", "Subscribes to Kafka, delivers CloudEvents")
     }
     ContainerDb(kafka, "Kafka", "Apache Kafka 4.x (KRaft)", "Topic: sampletopic")
     Rel(operator, producer, "dapr run / make dapr-run-producer")
@@ -95,46 +95,47 @@ C4Container
 - **Consumer** uses the legacy `Startup.cs` pattern with `UseCloudEvents()` to unwrap the CloudEvents envelope that the sidecar wraps around delivered messages. `MapPost("sampletopic").WithTopic(...)` registers the subscription with topic filter `event.type == "com.dapr.event.sent"`.
 - **JSON serialization** uses `JsonNamingPolicy.CamelCase` on both ends; `SampleMessage` in the `models` library is the shared wire schema.
 
-### Deployment View — KinD
+### Cluster Topology — KinD
 
 ```mermaid
 flowchart TB
     subgraph host["Host (Docker)"]
         cpk["cloud-provider-kind<br/>(LoadBalancer daemon)"]
-        subgraph cluster["KinD cluster: dapr-kafka (kindest/node:v1.35.0)"]
-            subgraph ns_dapr["Namespace: dapr-system"]
-                daprCP["Dapr control plane<br/>operator · placement · sentry · sidecar-injector"]
-            end
-            subgraph ns_kafka["Namespace: kafka"]
-                kafkaSts["Kafka StatefulSet<br/>bitnamilegacy/kafka:4.0.0-debian-12-r10<br/>(Bitnami chart 32.4.3)"]
-            end
-            subgraph ns_app["Namespace: dapr-app"]
-                subgraph podP["Pod: producer"]
-                    p_app[".NET 10 producer"]
-                    p_side["daprd sidecar<br/>(injected)"]
-                end
-                subgraph podC["Pod: consumer"]
-                    c_app["ASP.NET Core consumer<br/>:6000"]
-                    c_side["daprd sidecar<br/>(injected)"]
-                end
-                lb["Service: consumer<br/>LoadBalancer :80 → :6000"]
-            end
+        subgraph cluster["KinD cluster: dapr-kafka<br/>(kindest/node:v1.35.0)"]
+            ns_dapr["Namespace: dapr-system<br/>Dapr control plane<br/>(operator · placement · sentry · sidecar-injector)"]
+            ns_kafka["Namespace: kafka<br/>Strimzi operator + Kafka CR<br/>(upstream apache/kafka 4.0, KRaft)"]
+            ns_app["Namespace: dapr-app<br/>producer + consumer pods<br/>(see Event Flow below)"]
         end
     end
-    daprCP -.->|webhook injects sidecar| podP
-    daprCP -.->|webhook injects sidecar| podC
+    cpk -.->|allocates IP on kind network| ns_app
+    ns_dapr -.->|webhook injects daprd| ns_app
+```
+
+### Event Flow — `dapr-app` namespace
+
+```mermaid
+flowchart LR
+    subgraph podP["Pod: producer"]
+        p_app[".NET 10 producer"]
+        p_side["daprd sidecar"]
+    end
+    subgraph podC["Pod: consumer"]
+        c_app["ASP.NET Core consumer<br/>:6000"]
+        c_side["daprd sidecar"]
+    end
+    kafka["Kafka bootstrap svc<br/>(namespace: kafka)"]
+    lb["Service: consumer<br/>LoadBalancer :80 → :6000"]
     p_app -->|PublishEventAsync| p_side
-    p_side -->|produce sampletopic| kafkaSts
-    kafkaSts -->|consume sampletopic| c_side
+    p_side -->|produce sampletopic| kafka
+    kafka -->|consume sampletopic| c_side
     c_side -->|POST /sampletopic| c_app
-    cpk -.->|allocates IP on kind network| lb
     lb -.->|"external traffic (optional)"| c_app
 ```
 
 - **cloud-provider-kind** runs host-side (not in the cluster) and allocates LoadBalancer IPs on the `kind` Docker network — replaces MetalLB in the portfolio.
 - **Sidecar injection**: Dapr's `sidecar-injector` mutating webhook adds the `daprd` container to any pod annotated `dapr.io/enabled: "true"`. Both producer and consumer pods end up 2-container.
-- **Kafka** is in a separate namespace via the Bitnami chart. Note: the K8s path is still on `bitnamilegacy/kafka:4.0.0-debian-12-r10` (a frozen community archive — migration to `apache/kafka` or Strimzi is tracked in CLAUDE.md's Upgrade Backlog). The Docker Compose paths have already migrated to `apache/kafka:4.0.2`.
-- **Consumer Service** is `type: LoadBalancer` so the `e2e/e2e-test.sh` script can curl it from the host — otherwise the demo uses Dapr pub/sub, not HTTP ingress.
+- **Kafka** is in a separate namespace, managed by the Strimzi operator (`strimzi/strimzi-kafka-operator` Helm chart, version pinned in `STRIMZI_OPERATOR_VERSION`). The `Kafka` CR uses a single-broker `KafkaNodePool` with `dual-role` (controller + broker) in KRaft mode. Client bootstrap is `dapr-kafka-kafka-bootstrap.kafka.svc.cluster.local:9092`. Strimzi pulls the matching `quay.io/strimzi/kafka:<operator-version>-kafka-<spec.kafka.version>` image — no separate image pin in this repo.
+- **Consumer Service** is `type: LoadBalancer` so `e2e/e2e-test.sh` can curl it from the host — otherwise the demo uses Dapr pub/sub, not HTTP ingress.
 
 ### Source code layout
 
@@ -157,54 +158,6 @@ e2e/                KinD + Docker Compose end-to-end shell scripts
 
 Diagram sources live inline in this README — they are authored in Mermaid and parsed on every push by `make mermaid-lint` (pinned `minlag/mermaid-cli` Docker image) as part of `make static-check`.
 
-## Running Locally
-
-### Install Dapr in standalone mode
-
-```bash
-dapr init
-```
-
-See [Dapr standalone mode setup](https://docs.dapr.io/getting-started/install-dapr-selfhost/) for details.
-
-### Start Kafka
-
-Single-broker KRaft, plaintext, auto-creates topics — the default for the demo:
-
-```bash
-docker compose -f ./docker-compose-kafka.yaml up -d
-```
-
-A 3-node KRaft cluster (plaintext, no SASL+SSL) is also available via `docker-compose.yaml` — useful for broker-topology testing. Requires Dapr component changes (`brokers: "localhost:9094,localhost:9095,localhost:9096"`):
-
-```bash
-make local-kafka-run   # start
-make local-kafka-stop  # stop
-```
-
-### Run consumer and producer
-
-```bash
-# Terminal 1
-cd consumer && dapr run --app-id consumer --app-port 6000 --resources-path ../components -- dotnet run
-
-# Terminal 2
-cd producer && dapr run --app-id producer --resources-path ../components -- dotnet run
-```
-
-Or via Makefile shortcuts (equivalent):
-
-```bash
-make dapr-run-consumer
-make dapr-run-producer
-```
-
-### Stop Kafka
-
-```bash
-docker compose -f ./docker-compose-kafka.yaml down
-```
-
 ## Build & Package
 
 Multi-arch images (`linux/amd64`, `linux/arm64`) are built by the `docker` CI job on tag pushes and published to GHCR as `ghcr.io/andriykalashnykov/dapr-kafka-csharp/{producer,consumer}:<semver>`. Both images are digest-pinned in the Dockerfile (`mcr.microsoft.com/dotnet/{aspnet,sdk}:10.0@sha256:…`) for reproducibility. Local builds:
@@ -214,43 +167,86 @@ make image-build          # builds producer and consumer images via Buildx (tagg
 make docker-smoke-test    # boot each image and grep for the boot marker (mirrors CI Gate 3)
 ```
 
-## Kubernetes Deployment
+## Deployment
+
+Two paths cover the demo: a host-side Docker Compose flow for fast iteration and a KinD flow that mirrors production sidecar injection. Both rely on Dapr in standalone or cluster mode — the apps themselves never talk to Kafka directly.
+
+### Local (Docker Compose)
+
+Install Dapr in standalone mode (one-time):
+
+```bash
+dapr init
+```
+
+See [Dapr standalone mode setup](https://docs.dapr.io/getting-started/install-dapr-selfhost/) for details.
+
+Start a single-broker KRaft Kafka (plaintext, auto-creates topics) — the default for the demo:
+
+```bash
+docker compose -f ./docker-compose-kafka.yaml up -d
+```
+
+A 3-node KRaft cluster (plaintext, no SASL+SSL) is also available via `docker-compose.yaml` — useful for broker-topology testing. It requires a Dapr component change (`brokers: "localhost:9094,localhost:9095,localhost:9096"`):
+
+```bash
+make local-kafka-run    # start
+make local-kafka-stop   # stop
+```
+
+Run consumer and producer with their Dapr sidecars:
+
+```bash
+# Terminal 1
+make dapr-run-consumer  # cd consumer && dapr run --app-id consumer --app-port 6000 --resources-path ../components -- dotnet run
+
+# Terminal 2
+make dapr-run-producer  # cd producer && dapr run --app-id producer --resources-path ../components -- dotnet run
+```
+
+Tear down:
+
+```bash
+docker compose -f ./docker-compose-kafka.yaml down
+```
+
+### Kubernetes (KinD + cloud-provider-kind)
 
 Uses KinD (`kindest/node`) with [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind) for `ServiceType: LoadBalancer`. cloud-provider-kind runs host-side and allocates IPs from the `kind` Docker network; no in-cluster MetalLB.
 
-### One-command deploy
+One-command deploy:
 
 ```bash
-make kind-up       # create KinD cluster + start cloud-provider-kind + deploy Dapr + Kafka + workloads
+make kind-up       # create cluster + start cloud-provider-kind + deploy Dapr + Kafka + workloads
 make k8s-test      # verify pods healthy and messages flowing end-to-end
 make kind-down     # stop cloud-provider-kind and delete the cluster
 ```
 
 `make kind-up` is an alias for `kind-deploy`; `make kind-down` aliases `kind-destroy`.
 
-### Step-by-step (granular)
+Step-by-step (granular — for debugging individual phases):
 
 ```bash
 make kind-create          # create KinD cluster (image pinned via KIND_NODE_IMAGE, Renovate-tracked)
 make kind-setup           # start cloud-provider-kind LoadBalancer daemon (requires sudo)
 make k8s-dapr-deploy      # install Dapr via Helm
-make k8s-kafka-deploy     # install Kafka (Bitnami chart 32.4.3, Kafka 4.0, SASL)
+make k8s-kafka-deploy     # install Strimzi operator + Kafka CR (single-broker KRaft, plaintext)
 make k8s-workload-deploy  # build images, kind load docker-image, deploy apps
 make k8s-test             # verify message flow
 ```
 
-Check logs:
+Inspect logs (every recipe binds `kubectl` to `--context=kind-dapr-kafka` to prevent cross-cluster bleed when other KinD projects share `~/.kube/config`):
 
 ```bash
-kubectl logs -f -l app=producer -c producer -n dapr-app
-kubectl logs -f -l app=consumer -c consumer -n dapr-app
+kubectl --context=kind-dapr-kafka logs -f -l app=producer -c producer -n dapr-app
+kubectl --context=kind-dapr-kafka logs -f -l app=consumer -c consumer -n dapr-app
 ```
 
-### Cleanup
+Cleanup:
 
 ```bash
-make k8s-undeploy      # undeploy workloads + Kafka + Dapr + cluster
-make kind-down         # just tear down the cluster
+make k8s-undeploy   # workloads + Kafka + Dapr + cluster
+make kind-down      # just tear down the cluster
 ```
 
 ## Available Make Targets
@@ -314,7 +310,7 @@ Run `make help` for the generated list.
 | `make kind-setup` / `make kind-lb-stop` | Start/stop cloud-provider-kind LoadBalancer daemon (granular) |
 | `make kind-list` | List KinD clusters |
 | `make k8s-dapr-deploy` / `make k8s-dapr-undeploy` | Dapr Helm install/uninstall |
-| `make k8s-kafka-deploy` / `make k8s-kafka-undeploy` | Bitnami Kafka chart install/uninstall |
+| `make k8s-kafka-deploy` / `make k8s-kafka-undeploy` | Strimzi operator + Kafka CR install/uninstall |
 | `make k8s-image-load` | Build images and `kind load docker-image` into the cluster |
 | `make k8s-workload-deploy` / `make k8s-workload-undeploy` | Producer + consumer lifecycle |
 

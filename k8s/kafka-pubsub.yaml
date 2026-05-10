@@ -1,4 +1,3 @@
-# https://github.com/Azure/azure-functions-dapr-extension/blob/d2114f7d9be5c6452d246a59487d59600c3b7b85/samples/dotnet-azurefunction/deploy/kafka-pubsub.yaml#L4
 apiVersion: dapr.io/v1alpha1
 kind: Component
 metadata:
@@ -8,27 +7,14 @@ spec:
   version: v1
   initTimeout: 30s
   metadata:
-    # Kafka broker connection setting
+    # Strimzi exposes a single bootstrap service for client traffic — kafkanode
+    # pods are addressed indirectly via the bootstrap on port 9092 (plaintext).
     - name: brokers
-      # Comma separated list of kafka brokers
-      value: "dapr-kafka-controller-0.dapr-kafka-controller-headless.kafka.svc.cluster.local:9092,dapr-kafka-controller-1.dapr-kafka-controller-headless.kafka.svc.cluster.local:9092,dapr-kafka-controller-2.dapr-kafka-controller-headless.kafka.svc.cluster.local:9092"
-    - name: authType # Required.
-      value: "password"
-    - name: disableTls # Optional. Disable TLS. This is not safe for production!! You should read the `Mutual TLS` section for how to use TLS.
+      value: "dapr-kafka-kafka-bootstrap.kafka.svc.cluster.local:9092"
+    - name: authType
+      value: "none"
+    - name: disableTls
       value: "true"
-    - name: saslMechanism
-      value: "PLAIN"
-    - name: "saslUsername"
-      value: "admin"
-    - name: saslPassword
-      value: "kafka-admin-password"
-    - name: skipVerify
-      value: "true"  
-      # Required if authType is `password`. Make sure kafka is installed in the default namespace, otherwise secretKeyRef will not work.
-      # You can also provide directly password value instead of secretKeyRef. Read the kafka password with this command: `kubectl get secret -n kafka dapr-kafka-user-passwords -o jsonpath='{.data.system-user-password}' | base64 --decode` Not recommended for production.
-#      secretKeyRef:
-#        name: dapr-kafka-user-passwords
-#        key: system-user-password
     - name: maxMessageBytes
       value: 1024000
     - name: consumeRetryInterval

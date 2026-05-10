@@ -7,11 +7,12 @@ on:
   workflow_call:
 
 concurrency:
-  group: cleanup-${{ github.ref }}
+  group: cleanup
   cancel-in-progress: true
 
 permissions:
   actions: write
+  contents: read   # required by `gh api .../actions/caches` on private repos
 
 jobs:
   cleanup-runs:

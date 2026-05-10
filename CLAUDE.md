@@ -49,10 +49,10 @@ make local-kafka-stop  # Stop
 
 ### Kafka Infrastructure
 
-All Compose paths use Apache Kafka's official `apache/kafka` image (migrated off `bitnamilegacy/kafka` in 2026-04 — Bitnami paywalled production images; legacy namespace is a frozen archive). Both files use KRaft mode (no Zookeeper):
-- **`docker-compose-kafka.yaml`** — single-broker, plaintext, auto-creates topics. The default for the demo. Image digest-pinned in the compose file itself.
-- **`docker-compose.yaml`** — 3-node KRaft cluster, plaintext (downgraded from SASL+SSL in the migration). Image pinned via `KAFKA_IMAGE` in `.env` (digest-pinned). To use this topology, update Dapr component `brokers:` to `"localhost:9094,localhost:9095,localhost:9096"`.
-- **K8s Helm** — `scripts/kafka.sh` installs the `bitnami/kafka` chart (v32.4.3, Kafka 4.0, SASL KRaft, provisioned topics). **Deferred migration**: the K8s path is still on `bitnamilegacy/kafka:4.0.0-debian-12-r10` (pinned via `BITNAMI_KAFKA_LEGACY_TAG` in Makefile). Needs switching to either Strimzi operator or a custom chart around `apache/kafka`. `KAFKA_CHART_VERSION` and `BITNAMI_KAFKA_LEGACY_TAG` are exported from Makefile to the script.
+All Kafka paths run upstream Apache Kafka in KRaft mode (no Zookeeper). Bitnami was retired in 2026 after the production-image paywall:
+- **`docker-compose-kafka.yaml`** — single-broker, plaintext, auto-creates topics. The default for the demo. Image digest-pinned to `apache/kafka:4.2.0` in the compose file itself.
+- **`docker-compose.yaml`** — 3-node KRaft cluster, plaintext. Image pinned via `KAFKA_IMAGE` in `.env` (digest-pinned). To use this topology, update Dapr component `brokers:` to `"localhost:9094,localhost:9095,localhost:9096"`.
+- **K8s** — `scripts/kafka.sh install` runs the Strimzi operator (`strimzi/strimzi-kafka-operator` chart, version pinned via `STRIMZI_OPERATOR_VERSION` in Makefile) and applies `k8s/strimzi-kafka.yaml` (`KafkaNodePool` + `Kafka` + `KafkaTopic` CRs — single-broker KRaft, plaintext). Strimzi pulls `quay.io/strimzi/kafka:<operator>-kafka-<spec.kafka.version>` automatically; bootstrap service for client traffic is `dapr-kafka-kafka-bootstrap.kafka.svc.cluster.local:9092`.
 
 ## Architecture
 
@@ -103,18 +103,25 @@ K8s manifests are in `k8s/` (namespace: `dapr-app`). `deps-k8s` checks for `kind
 
 ## Testing
 
-Tests are not yet present in the solution (`make test` silently reports zero assemblies). When added, they must use **TUnit** per the portfolio rule at `~/.claude/rules/dotnet/testing.md` (xUnit/NUnit/MSTest are migration-required). Preferred mocking library: **FakeItEasy**.
+Test projects live under `tests/` and use **TUnit 1.37.0** (portfolio rule at `~/.claude/rules/dotnet/testing.md` — xUnit/NUnit/MSTest are migration-required) with **FakeItEasy 9.0.1** for mocking:
 
-The Makefile exposes the three-layer test pyramid once tests exist:
+| Project | Layer | Notes |
+|---------|-------|-------|
+| `tests/models.UnitTests` | Unit | Pure-data tests on `SampleMessage` |
+| `tests/producer.UnitTests` | Unit | Mocks `DaprClient` via FakeItEasy |
+| `tests/producer.IntegrationTests` | Integration | Real publish loop assertions |
+| `tests/consumer.IntegrationTests` | Integration | `WebApplicationFactory<Program>` for in-process HTTP + CloudEvents |
+
+The Makefile exposes the three-layer test pyramid:
 
 | Target | Layer | Runtime |
 |--------|-------|---------|
 | `make test` | Unit (in-process, mocked deps) | seconds |
-| `make integration-test` | Integration (Testcontainers, requires Docker) | seconds–tens of seconds |
+| `make integration-test` | Integration (Testcontainers where applicable, requires Docker) | seconds–tens of seconds |
 | `make e2e` | End-to-end (KinD deploy + real message flow) | minutes |
 | `make e2e-compose` | End-to-end (Docker Compose alternative) | minutes |
 
-Run `/test-coverage-analysis` to scaffold missing test files.
+Run `/test-coverage-analysis` to find gaps and scaffold missing files.
 
 ## Formatting and Static Checks
 
@@ -133,7 +140,10 @@ make mermaid-lint   # Parse every ```mermaid block via pinned minlag/mermaid-cli
 
 ## Key Details
 
-- **Version manager**: mise (`.mise.toml`) — pins `dotnet`, `node`, `hadolint`, `act`, `dapr` CLI, `trivy`, `gitleaks`, `kind`, `cloud-provider-kind`, `kubectl`, `helm`. Single source of truth for CLI tooling.
+- **Version manager**: mise (`.mise.toml`) — pins `dotnet`, `node`, `hadolint`, `act`, `dapr` CLI, `trivy`, `gitleaks`, `kind`, `cloud-provider-kind`, `kubectl`, `helm`. Single source of truth for CLI tooling. Tracked by Renovate's native `mise` manager (no `# renovate:` annotations needed in `.mise.toml`).
+- **K8s safety**: every `kubectl`/`helm` recipe is bound to `--context=kind-$(KIND_CLUSTER_NAME)` via the `KUBECTL` Makefile variable (and the `HELM_CTX` array in `scripts/kafka.sh`). Prevents cross-cluster bleed when other KinD-using projects rewrite `~/.kube/config` mid-session.
+- **Namespaces** are sourced from `DAPR_APP_NS` (`dapr-app`) and `DAPR_SYSTEM_NS` (`dapr-system`) — single source of truth across all Makefile recipes.
+- **Helm version**: pinned to 3.x in `.mise.toml` (`aqua:helm/helm`). Helm 4 is stable but introduces SDK/plugin API breaking changes; no Helm 4 feature is required by this project (Strimzi + Dapr charts both publish for 3.x). Renovate keeps the 3.x patch flowing. Move to Helm 4 only when a chart we use drops 3.x support — there's no other compelling trigger.
 - .NET SDK version pinned in `global.json` (10.0.201, `rollForward: latestMajor`, `allowPrerelease: true`)
 - All projects target `net10.0`
 - Each project has its own `nuget.config` pointing to NuGet v3 feed
@@ -162,17 +172,9 @@ The weekly cleanup workflow (`.github/workflows/cleanup-runs.yml`) prunes runs o
 
 ## Upgrade Backlog
 
-Deferred items from `/upgrade-analysis` (2026-04-20). Review and resolve on future runs:
+Deferred items waiting on upstream. Re-evaluate on each `/upgrade-analysis` pass.
 
-- [ ] **Helm 3 → 4 migration** — Helm 4.1.4 is stable alongside 3.20.2. Helm 4 has SDK/plugin API breaking changes. Pinned on `3.20.2` for now; plan a separate POC before committing.
-- [ ] **K8s Kafka path still on Bitnami** — `scripts/kafka.sh` uses `bitnami/kafka` Helm chart with `bitnamilegacy/kafka:4.0.0-debian-12-r10`. Compose paths migrated to `apache/kafka` 2026-04; K8s path deferred. Options: (a) Strimzi operator, (b) custom chart around `apache/kafka`, (c) paid Broadcom Tanzu Bitnami registry. Track when Bitnami Helm chart itself moves behind the paywall.
-- [ ] **Bitnami Helm chart succession** — `charts.bitnami.com/bitnami` moved to `repo.broadcom.com/bitnami-files` (302 redirect). If this host goes paywalled or offline, `scripts/kafka.sh` breaks. Monitor.
-
-Resolved:
-
-- [x] **Branch protection on `main`** — Repository Rulesets are active (discovered via direct-push rejection with `GH013: Repository rule violations found`); `ci-pass` is enforced as the required status check.
-- [x] **Microsoft.NET.Test.Sdk ↔ TUnit 1.37.0 compat** — validated by green CI across runs [24689392397](https://github.com/AndriyKalashnykov/dapr-kafka-csharp/actions/runs/24689392397), [24690437810](https://github.com/AndriyKalashnykov/dapr-kafka-csharp/actions/runs/24690437810), and local `make ci-run` under act. TUnit bundles its own MTP runner; `Microsoft.NET.Test.Sdk` is not referenced in test csprojs.
-- [x] **Kafka 4.2 upgrade** — Compose paths bumped to `apache/kafka:4.2.0` (digest-pinned); e2e-compose passes (PASS=2 FAIL=0). K8s path still on Bitnami — tracked separately.
+_No items currently deferred._
 
 ## Skills
 

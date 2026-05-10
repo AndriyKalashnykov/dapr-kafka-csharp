@@ -1,99 +1,68 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# Install or uninstall an upstream Apache Kafka cluster on KinD via the Strimzi operator.
+# Replaces the legacy Bitnami chart path (frozen `bitnamilegacy/kafka` archive image).
+#
+# Inputs:
+#   $1 — action: install | delete (default: install)
+# Env from Makefile:
+#   STRIMZI_OPERATOR_VERSION — Helm chart version of strimzi-kafka-operator (Renovate-tracked)
+#   KIND_CLUSTER_NAME        — when set, every kubectl/helm call binds to --context=kind-<name>
+#                              (prevents cross-cluster bleed when other KinD projects share ~/.kube/config)
 
-LAUNCH_DIR=$(pwd); SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; cd $SCRIPT_DIR; cd ..; SCRIPT_PARENT_DIR=$(pwd);
-set -e
-# set -x
+set -euo pipefail
 
-SCRIPT_ACTION=${1:-install}
-KAFKA_CLUSTER_NAME=${2:-dapr-kafka}
-KAFKA_NAMESPACE=${3:-kafka}
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+ACTION="${1:-install}"
+NAMESPACE="kafka"
+RELEASE_NAME="strimzi-kafka-operator"
 
-echo $KAFKA_CLUSTER_NAME
-echo $KAFKA_NAMESPACE
-
-helm repo add bitnami https://charts.bitnami.com/bitnami
-#helm repo add kafka-ui https://provectus.github.io/kafka-ui-charts
-helm repo update
-
-helm ls -n $KAFKA_NAMESPACE
-
-SASL_ADMIN_USER=admin
-SASL_ADMIN_PASSWORD=kafka-admin-password
-#SASL_ADMIN_PASSWORD=$(kubectl get secret $KAFKA_CLUSTER_NAME-kafka-svcbind-user-0 --namespace $KAFKA_NAMESPACE -o jsonpath='{.data.password}' | base64 -d | cut -d , -f 1)
-#SASL_ADMIN_PASSWORD=${SASL_ADMIN_PASSWORD:-$(openssl rand -hex 6)}
-
-KAFKA_USER=kafka-client
-KAFKA_PASSWORD=kafka-client-password
-#KAFKA_PASSWORD=$(kubectl get secret $KAFKA_CLUSTER_NAME-kafka-svcbind-user-1 --namespace $KAFKA_NAMESPACE -o jsonpath='{.data.password}' | base64 -d | cut -d , -f 1)
-#KAFKA_PASSWORD=${KAFKA_PASSWORD:-$(openssl rand -hex 6)}
-
-# https://github.com/bitnami/charts/tree/main/bitnami/kafka#upgrading
-# KAFKA_CHART_VERSION is exported by Makefile and Renovate-tracked there.
-# BITNAMI_KAFKA_LEGACY_TAG is a frozen bitnamilegacy tag — this K8s path has not yet
-# been migrated off Bitnami (see the Apache Kafka migration TODO in Makefile).
-KAFKA_VERSION="${KAFKA_CHART_VERSION:-32.4.3}"
-KAFKA_IMAGE_TAG="${BITNAMI_KAFKA_LEGACY_TAG:-4.0.0-debian-12-r10}"
-#KAFKA_UI_VERSION="0.7.5"
-
-
-if [[ $SCRIPT_ACTION != "install" && $SCRIPT_ACTION != "delete" ]]; then
-  echo "Error: Action \"$SCRIPT_ACTION\" is not supported. Supported: 'install', 'delete'"
-  exit 1
+if [[ "${ACTION}" != "install" && "${ACTION}" != "delete" ]]; then
+    echo "Error: action must be 'install' or 'delete' (got: ${ACTION})" >&2
+    exit 1
 fi
 
-if [[ $SCRIPT_ACTION == "install"  ]]; then
-  ## INSTALL KAFKA
-  TPM_VALUES_NAME="/tmp/tpm.kafka.values.yaml"
-  sed "s/{{kafka_user}}/$KAFKA_USER/g; s/{{kafka_user_password}}/$KAFKA_PASSWORD/g; s/{{admin_user}}/$SASL_ADMIN_USER/g; s/{{kafka_admin_password}}/$SASL_ADMIN_PASSWORD/g;" $SCRIPT_PARENT_DIR/k8s/values/kafka.values.yaml > $TPM_VALUES_NAME
-  
-  cat  $TPM_VALUES_NAME
-  
-#  --set tls.endpointIdentificationAlgorithm=""
-  helm upgrade --install -f $TPM_VALUES_NAME $KAFKA_CLUSTER_NAME bitnami/kafka --namespace $KAFKA_NAMESPACE --create-namespace  \
-    --timeout 10m \
-    --version $KAFKA_VERSION \
-    --set image.registry=docker.io \
-    --set image.repository=bitnamilegacy/kafka \
-    --set image.tag="${KAFKA_IMAGE_TAG}" \
-    --set persistence.storageClass=standard \
-    --set controller.persistence.enabled=true \
-    --set controller.persistence.size=4Gi \
-    --set broker.persistence.enabled=true \
-    --set broker.persistence.size=4Gi \
-    --set broker.logPersistence.enabled=true \
-    --set broker.logPersistence.size=4Gi \
-    --set metrics.kafka.enabled=false \
-    --set metrics.jmx.enabled=false \
-    --set serviceAccount.create=true \
-    --set rbac.create=true \
-    --set service.type=ClusterIP \
-    --set kraft.enabled=true \
-    --set controller.replicaCount=3 \
-    --set zookeeper.enabled=false  \
-    --set zookeeper.verifyHostname=false  \
-    --set zookeeper.metrics.enabled=false  \
-    --set zookeeper.persistence.enabled=false \
-    --set zookeeper.replicaCount=0 \
-    --set broker.replicaCount=0 \
-    --set deleteTopicEnable=true \
-    --set provisioning.enabled=true \
-    --set provisioning.topics[0].name="sampletopic" \
-    --set provisioning.topics[0].partitions=1 \
-    --set provisioning.topics[0].replicationFactor=1 \
-    --set provisioning.topics[0].config.max.message.bytes=128000 \
-    --set auth.clientProtocol=sasl \
-    --set allowPlaintextListener=true \
-    --set advertisedListeners=SASL_PLAINTEXT://:9092 \
-    --set listeners.client.protocol="SASL_PLAINTEXT" \
-    --wait
-  
-  kubectl run $KAFKA_CLUSTER_NAME-client --restart='Never' --image "docker.io/bitnamilegacy/kafka:${KAFKA_IMAGE_TAG}" --namespace $KAFKA_NAMESPACE --command -- sleep infinity
-  kubectl wait --for=condition=ready pod/$KAFKA_CLUSTER_NAME-client -n $KAFKA_NAMESPACE
-  kubectl cp --namespace $KAFKA_NAMESPACE $SCRIPT_PARENT_DIR/kafka/client.properties $KAFKA_CLUSTER_NAME-client:/tmp/client.properties
-  
-  rm $TPM_VALUES_NAME
-  
-elif [[ $SCRIPT_ACTION == "delete" ]]; then
-#	helm delete $KAFKA_CLUSTER_NAME bitnami/kafka --namespace $KAFKA_NAMESPACE
-	kubectl delete pod -n $KAFKA_NAMESPACE $KAFKA_CLUSTER_NAME-client
+# Context-bound CLI invocations. The :+ form leaves the array empty when
+# KIND_CLUSTER_NAME is unset, so the script also works against any current-context.
+KUBECTL=(kubectl ${KIND_CLUSTER_NAME:+--context=kind-${KIND_CLUSTER_NAME}})
+HELM_CTX=(${KIND_CLUSTER_NAME:+--kube-context kind-${KIND_CLUSTER_NAME}})
+
+if [[ "${ACTION}" == "install" ]]; then
+    : "${STRIMZI_OPERATOR_VERSION:?STRIMZI_OPERATOR_VERSION must be exported by the calling Makefile}"
+
+    echo "==> Installing Strimzi operator ${STRIMZI_OPERATOR_VERSION} into ${NAMESPACE}"
+    helm "${HELM_CTX[@]}" repo add strimzi https://strimzi.io/charts/
+    helm "${HELM_CTX[@]}" repo update strimzi
+    # Strimzi watches its own namespace by default — do NOT set --set watchNamespaces
+    # to the same namespace as the release; the chart then tries to create both the
+    # release-namespace RoleBindings AND the watch-namespace RoleBindings, which
+    # collide on identical names ("strimzi-cluster-operator-watched" et al.) and
+    # fail the install.
+    helm "${HELM_CTX[@]}" upgrade --install "${RELEASE_NAME}" strimzi/strimzi-kafka-operator \
+        --version "${STRIMZI_OPERATOR_VERSION}" \
+        --namespace "${NAMESPACE}" --create-namespace \
+        --wait
+
+    echo "==> Applying Kafka CRs (KafkaNodePool + Kafka + KafkaTopic)"
+    "${KUBECTL[@]}" apply -n "${NAMESPACE}" -f "${REPO_ROOT}/k8s/strimzi-kafka.yaml"
+
+    echo "==> Waiting for Kafka cluster Ready"
+    "${KUBECTL[@]}" wait kafka/dapr-kafka -n "${NAMESPACE}" \
+        --for=condition=Ready --timeout=300s
+
+    echo "==> Waiting for KafkaTopic sampletopic Ready"
+    "${KUBECTL[@]}" wait kafkatopic/sampletopic -n "${NAMESPACE}" \
+        --for=condition=Ready --timeout=120s
+
+    echo "Strimzi Kafka cluster ready: dapr-kafka-kafka-bootstrap.${NAMESPACE}.svc.cluster.local:9092"
+
+elif [[ "${ACTION}" == "delete" ]]; then
+    echo "==> Removing Kafka CRs"
+    "${KUBECTL[@]}" delete -n "${NAMESPACE}" -f "${REPO_ROOT}/k8s/strimzi-kafka.yaml" --ignore-not-found=true
+
+    echo "==> Uninstalling Strimzi operator"
+    helm "${HELM_CTX[@]}" uninstall "${RELEASE_NAME}" --namespace "${NAMESPACE}" --ignore-not-found || true
+
+    echo "==> Deleting ${NAMESPACE} namespace"
+    "${KUBECTL[@]}" delete namespace "${NAMESPACE}" --ignore-not-found=true
 fi

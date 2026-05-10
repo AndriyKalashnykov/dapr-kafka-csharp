@@ -39,10 +39,10 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "Update Makefile plain version constants via inline renovate comments (no colons in value)",
+      "description": "Update Makefile plain version constants via inline renovate comments (covers :=, ?=, =)",
       "managerFilePatterns": ["/^Makefile$/"],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)( versioning=(?<versioning>\\S+))?( registryUrl=(?<registryUrl>\\S+))?\\n[A-Z_]+\\s*:=\\s*(?<currentValue>[^:\\s]+)\\s*$"
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)( versioning=(?<versioning>\\S+))?( registryUrl=(?<registryUrl>\\S+))?\\n[A-Z_]+\\s*[?:]?=\\s*(?<currentValue>[^:\\s]+)"
       ]
     },
     {
@@ -50,15 +50,7 @@
       "description": "Update Makefile Docker image ref constants with optional digest (repo:tag@sha256:...)",
       "managerFilePatterns": ["/^Makefile$/"],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)( versioning=(?<versioning>\\S+))?\\n[A-Z_]+\\s*:=\\s*\\S+?:(?<currentValue>[^@\\s]+)(@(?<currentDigest>sha256:[a-f0-9]+))?"
-      ]
-    },
-    {
-      "customType": "regex",
-      "description": "Update .mise.toml tool pins via inline renovate comments",
-      "managerFilePatterns": ["/^\\.mise\\.toml$/"],
-      "matchStrings": [
-        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)( versioning=(?<versioning>\\S+))?\\n[\"a-zA-Z0-9_/:-]+\\s*=\\s*\"(?<currentValue>[^\"]+)\""
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)( versioning=(?<versioning>\\S+))?\\n[A-Z_]+\\s*[?:]?=\\s*\\S+?:(?<currentValue>[^@\\s]+)(@(?<currentDigest>sha256:[a-f0-9]+))?"
       ]
     },
     {
