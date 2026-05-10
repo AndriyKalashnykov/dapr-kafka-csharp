@@ -376,7 +376,7 @@ A weekly **cleanup** workflow (`cleanup-runs.yml`) prunes runs older than 7 days
 
 No external secrets or `vars.*` are required.
 
-[Renovate](https://docs.renovatebot.com/) keeps dependencies up to date with platform automerge enabled. Every version pin (`.mise.toml`, `Makefile`, NuGet `*.csproj`, Dockerfiles, docker-compose, GitHub Actions) is tracked.
+[Renovate](https://docs.renovatebot.com/) keeps dependencies up to date with platform automerge enabled. Every version pin is tracked: `.mise.toml` (aqua backends + core tools), `Makefile` constants annotated with `# renovate:` (Mermaid CLI, Dapr chart, Strimzi operator), `.env` (Kafka image digest), `*.csproj` (NuGet), Dockerfile `FROM` digests, docker-compose `image:` fields, `k8s/*.yaml` `image:` fields (via the `kubernetes` manager), GitHub Actions `uses:` refs, and inline `# renovate:` annotations above env-block constants in `.github/workflows/*.yml` (container-structure-test, OWASP ZAP).
 
 ## Contributing
 
