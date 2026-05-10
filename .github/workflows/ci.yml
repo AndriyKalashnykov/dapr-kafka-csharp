@@ -220,9 +220,10 @@ jobs:
           global-json-file: global.json
 
       - name: Install CLI tooling via mise
+        # Omit `version:` — the action's default already resolves "latest" via
+        # the GitHub releases API. Passing `version: latest` literally makes
+        # the action try to download `mise@latest`, which 404s.
         uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
-        with:
-          version: latest
 
       - name: Create KinD cluster
         uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
