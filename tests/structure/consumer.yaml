@@ -1,0 +1,25 @@
+schemaVersion: 2.0.0
+
+# Container structure test for the consumer image.
+# Run via: container-structure-test test --image consumer:scan --config tests/structure/consumer.yaml
+# CI wires this between Trivy image scan and the smoke test in .github/workflows/ci.yml.
+
+commandTests:
+  - name: dotnet-runtime-resolves
+    command: dotnet
+    args: ["--info"]
+    expectedOutput:
+      - ".NET runtime"
+
+fileExistenceTests:
+  - name: consumer-dll-present
+    path: /app/consumer.dll
+    shouldExist: true
+  - name: models-dll-present
+    path: /app/models.dll
+    shouldExist: true
+
+metadataTest:
+  workdir: /app
+  entrypoint: ["dotnet", "consumer.dll"]
+  user: "1654"   # APP_UID from mcr.microsoft.com/dotnet/aspnet — non-root, set via USER $APP_UID
