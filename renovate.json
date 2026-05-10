@@ -60,6 +60,14 @@
       "matchStrings": [
         "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)( versioning=(?<versioning>\\S+))?\\n[A-Z_]+=\\S+?:(?<currentValue>[^@\\s]+)(@(?<currentDigest>sha256:[a-f0-9]+))?"
       ]
+    },
+    {
+      "customType": "regex",
+      "description": "Update GitHub workflow inline tool versions via `# renovate:` comments above env-block entries",
+      "managerFilePatterns": ["/^\\.github/workflows/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)( versioning=(?<versioning>\\S+))?( registryUrl=(?<registryUrl>\\S+))?\\n\\s+[A-Z_]+:\\s*[\"']?(?<currentValue>[^\"'\\s]+)"
+      ]
     }
   ],
   "packageRules": [

@@ -200,11 +200,11 @@ jobs:
 
   # E2E against the K8s deployment path: KinD + Dapr + Strimzi operator +
   # producer/consumer Deployments, asserting message flow via kubectl logs.
-  # Skipped under `act` (kind-in-act is slow and the act runner image lacks
-  # the kernel features kind needs for nested containerd to come up reliably).
+  # Skipped under `act` (helm/kind-action's containerd-in-docker setup doesn't
+  # come up reliably inside act's nested runtime).
   e2e-kind:
     needs: [changes, build, test]
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.code == 'true' && !env.ACT
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -218,12 +218,12 @@ jobs:
           global-json-file: global.json
 
       - name: Install CLI tooling via mise
-        uses: jdx/mise-action@5083fe46898c414b2475087cc79da59e7da859e8 # v3
+        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
         with:
           version: latest
 
       - name: Create KinD cluster
-        uses: helm/kind-action@a1b0e391336a6ee6713a0583f8c6240d70863de3 # v1.12.0
+        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
         with:
           cluster_name: dapr-kafka
           node_image: kindest/node:v1.35.0@sha256:452d707d4862f52530247495d180205e029056831160e22870e37e3f6c1ac31f
@@ -270,6 +270,10 @@ jobs:
 
     env:
       REGISTRY: ghcr.io
+      # renovate: datasource=github-releases depName=GoogleContainerTools/container-structure-test
+      CST_VERSION: v1.22.1
+      # renovate: datasource=docker depName=zaproxy/zaproxy registryUrl=https://ghcr.io
+      ZAP_VERSION: "2.17.0"
 
     strategy:
       fail-fast: false
@@ -340,7 +344,7 @@ jobs:
       - name: Install container-structure-test
         run: |
           set -euo pipefail
-          curl -fsSL -o cst https://storage.googleapis.com/container-structure-test/latest/container-structure-test-linux-amd64
+          curl -fsSL -o cst "https://storage.googleapis.com/container-structure-test/${CST_VERSION}/container-structure-test-linux-amd64"
           chmod +x cst
           sudo mv cst /usr/local/bin/container-structure-test
 
@@ -378,7 +382,7 @@ jobs:
       # generates noise in the report without indicating a real vulnerability;
       # use the uploaded artifact to triage findings rather than failing CI.
       - name: DAST — OWASP ZAP baseline (consumer)
-        if: matrix.app == 'consumer'
+        if: matrix.app == 'consumer' && !env.ACT
         continue-on-error: true
         run: |
           set -euo pipefail
@@ -386,7 +390,7 @@ jobs:
           chmod 777 zap-report   # ZAP writes report files as the container user
           docker run --rm --network=host \
             -v "$(pwd)/zap-report:/zap/wrk/:rw" \
-            ghcr.io/zaproxy/zaproxy:stable \
+            "ghcr.io/zaproxy/zaproxy:${ZAP_VERSION}" \
             zap-baseline.py \
               -t http://localhost:6000 \
               -r zap-report.html \
