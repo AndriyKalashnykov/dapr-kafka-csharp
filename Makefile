@@ -40,10 +40,11 @@ DAPR_CHART_VERSION := 1.17.5
 # renovate: datasource=github-releases depName=strimzi/strimzi-kafka-operator
 STRIMZI_OPERATOR_VERSION := 0.46.0
 
-# renovate: datasource=docker depName=apache/kafka
-KAFKA_IMAGE_VERSION := 4.0.2
+# The Compose-path Kafka broker version lives in .env (KAFKA_IMAGE=apache/kafka:X.Y.Z@sha256:...);
+# docker-compose.yaml reads it directly. Renovate tracks it via the .env custom manager.
+# No KAFKA_IMAGE_VERSION Makefile constant — adding one creates duplicate tracking + drift risk.
 
-export KAFKA_IMAGE_VERSION DAPR_CHART_VERSION STRIMZI_OPERATOR_VERSION
+export DAPR_CHART_VERSION STRIMZI_OPERATOR_VERSION
 export KIND_CLUSTER_NAME
 
 #help: @ List available tasks

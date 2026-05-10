@@ -39,10 +39,10 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "Update Makefile plain version constants via inline renovate comments (covers :=, ?=, =)",
+      "description": "Update Makefile plain version constants via inline renovate comments (covers :=, ?=, =). The value pattern `v?\\d[\\w.+-]*` requires a digit (or `v` + digit) start, which excludes docker-image refs like `kindest/node:tag@digest` (start with `k`) — those fall through to the next regex that understands the `repo:tag@digest` shape. RE2 forbids lookahead, so this strict character class is the path to one-regex-per-constant matching.",
       "managerFilePatterns": ["/^Makefile$/"],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)( versioning=(?<versioning>\\S+))?( registryUrl=(?<registryUrl>\\S+))?\\n[A-Z_]+\\s*[?:]?=\\s*(?<currentValue>[^:\\s]+)"
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)( versioning=(?<versioning>\\S+))?( registryUrl=(?<registryUrl>\\S+))?\\n[A-Z_]+\\s*[?:]?=\\s*(?<currentValue>v?\\d[\\w.+-]*)"
       ]
     },
     {
