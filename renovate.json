@@ -110,6 +110,11 @@
       "matchPackageNames": ["Dapr.*"]
     },
     {
+      "description": "Group TUnit test framework bumps — the 4 test projects (.UnitTests + .IntegrationTests for models/producer/consumer) each carry the same TUnit pin; without grouping each release produces 4 near-identical PRs",
+      "groupName": "TUnit",
+      "matchPackageNames": ["/^TUnit/"]
+    },
+    {
       "description": "Group Makefile and .mise.toml tool versions into a single PR",
       "matchManagers": [
         "custom.regex"

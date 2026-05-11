@@ -68,4 +68,51 @@ public sealed class SampleMessageTests
         await Assert.That(msg).IsNotNull();
         await Assert.That(msg!.Message).IsEqualTo("m");
     }
+
+    // The wire contract permits null string fields (SampleMessage's Message / Sentiment
+    // are plain `string` with nullable-context enabled; System.Text.Json serializes null
+    // values to JSON null by default). Validate that null survives the round-trip so we
+    // never surprise a downstream that handed us a partial message.
+    [Test]
+    public async Task RoundTrip_PreservesNullStringFields()
+    {
+        var original = new SampleMessage
+        {
+            CorrelationId = Guid.NewGuid(),
+            MessageId = Guid.NewGuid(),
+            Message = null!,
+            CreationDate = new DateTime(2026, 5, 11, 0, 0, 0, DateTimeKind.Utc),
+            Sentiment = null!,
+            PreviousAppTimestamp = new DateTime(2026, 5, 11, 0, 0, 0, DateTimeKind.Utc),
+        };
+
+        var json = JsonSerializer.Serialize(original, CamelCase);
+        var round = JsonSerializer.Deserialize<SampleMessage>(json, CamelCase);
+
+        await Assert.That(round).IsNotNull();
+        await Assert.That(round!.Message).IsNull();
+        await Assert.That(round.Sentiment).IsNull();
+        await Assert.That(round.CorrelationId).IsEqualTo(original.CorrelationId);
+    }
+
+    [Test]
+    public async Task RoundTrip_PreservesEmptyStringFields()
+    {
+        var original = new SampleMessage
+        {
+            CorrelationId = Guid.NewGuid(),
+            MessageId = Guid.NewGuid(),
+            Message = string.Empty,
+            CreationDate = new DateTime(2026, 5, 11, 0, 0, 0, DateTimeKind.Utc),
+            Sentiment = string.Empty,
+            PreviousAppTimestamp = new DateTime(2026, 5, 11, 0, 0, 0, DateTimeKind.Utc),
+        };
+
+        var json = JsonSerializer.Serialize(original, CamelCase);
+        var round = JsonSerializer.Deserialize<SampleMessage>(json, CamelCase);
+
+        await Assert.That(round).IsNotNull();
+        await Assert.That(round!.Message).IsEqualTo(string.Empty);
+        await Assert.That(round.Sentiment).IsEqualTo(string.Empty);
+    }
 }

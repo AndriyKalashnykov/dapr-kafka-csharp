@@ -18,39 +18,44 @@ namespace Dapr.Examples.Pubsub.Producer
         static async Task Main(string[] args)
         {
             var cts = new CancellationTokenSource();
-            await StartMessageGeneratorAsync(cts.Token);
+            using var client = new DaprClientBuilder().Build();
+            await StartMessageGeneratorAsync(client, cts.Token);
         }
 
-        static async Task StartMessageGeneratorAsync(CancellationToken cancellationToken)
+        // Injectable client + bounded iteration count + configurable delay so the loop is
+        // unit-testable. Production callers pass the real DaprClient with the defaults
+        // (infinite loop, 10s delay); tests pass a fake client + small bounds.
+        static internal async Task StartMessageGeneratorAsync(
+            DaprClient client,
+            CancellationToken cancellationToken,
+            int maxIterations = -1,
+            TimeSpan? delayBetweenIterations = null)
         {
-            var daprClientBuilder = new DaprClientBuilder();
-            var client = daprClientBuilder.Build();
+            var delay = delayBetweenIterations ?? TimeSpan.FromSeconds(10.0);
+            const string PUBSUB_NAME = "sampletopic";
+            const string TOPIC_NAME = "sampletopic";
 
-            string PUBSUB_NAME = "sampletopic";
-            string TOPIC_NAME = "sampletopic";
-
-            while (true)
+            int iter = 0;
+            while (maxIterations < 0 || iter < maxIterations)
             {
                 var message = GenerateNewMessage();
                 Console.WriteLine("Publishing data: {0}", message.Message);
-                var eventData = message;
-
-                // Random random = new Random();
-                // int orderId = random.Next(1,1000);
-                // var eventData = new { Id = orderId, Amount = orderId, };
-                // Console.WriteLine("Published data: " + orderId);
 
                 try
                 {
-                    await client.PublishEventAsync(PUBSUB_NAME, TOPIC_NAME, eventData, cancellationToken);
+                    await client.PublishEventAsync(PUBSUB_NAME, TOPIC_NAME, message, cancellationToken);
                 }
                 catch (Exception ex)
                 {
+                    // Transient publish failure must not terminate the loop — log and continue.
                     Console.WriteLine(ex);
                 }
 
-                // Delay 10 seconds
-                await Task.Delay(TimeSpan.FromSeconds(10.0));
+                iter++;
+                if (maxIterations < 0 || iter < maxIterations)
+                {
+                    await Task.Delay(delay, cancellationToken);
+                }
             }
         }
 

@@ -32,14 +32,19 @@ command -v dapr >/dev/null || { echo "Error: dapr CLI required"; exit 1; }
 command -v dotnet >/dev/null || { echo "Error: dotnet SDK required"; exit 1; }
 
 section "Wait for Kafka broker"
-for _ in $(seq 1 30); do
-    if docker exec "$(docker compose -f docker-compose-kafka.yaml ps -q)" \
-        kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1; then
-        echo "Kafka ready"
-        break
-    fi
-    sleep 2
-done
+# The compose file's `up -d --wait` (invoked by `make e2e-compose`) already
+# blocks until the kafka container reports Healthy via its HEALTHCHECK, so the
+# broker is reachable by the time we reach this point. Print a confirmation
+# probe via the canonical binary path (apache/kafka 4.x ships its scripts
+# under /opt/kafka/bin/, not on $PATH) — fail loud if the broker disappears
+# between `--wait` returning and this assertion.
+if docker exec "$(docker compose -f docker-compose-kafka.yaml ps -q)" \
+    /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1; then
+    echo "Kafka ready"
+else
+    echo "FAIL: Kafka broker unreachable despite compose reporting Healthy"
+    exit 1
+fi
 
 section "Start consumer with Dapr sidecar"
 (cd consumer && dapr run --app-id consumer --app-port 6000 --resources-path ../components --log-level warn -- dotnet run) \
@@ -84,6 +89,46 @@ else
     echo "FAIL: producer did not log any publish"
     FAIL=$((FAIL + 1))
 fi
+
+section "Negative case — consumer rejects malformed POST to /sampletopic (mirrors KinD e2e)"
+# The consumer is running locally via `dapr run --app-port 6000`; the app binds :6000
+# directly. We curl that endpoint to verify the same status/Content-Type/ProblemDetails
+# contract that the KinD e2e checks via the LoadBalancer.
+headers="$(mktemp)"; body="$(mktemp)"
+status="$(curl -s -o "${body}" -D "${headers}" -w '%{http_code}' --max-time 5 \
+    -X POST "http://localhost:6000/sampletopic" \
+    -H 'Content-Type: application/json' -d 'not-json' || echo "000")"
+
+if [ "${status}" -ge 400 ] && [ "${status}" -lt 500 ]; then
+    echo "PASS: malformed body returned ${status}"
+    PASS=$((PASS + 1))
+else
+    echo "FAIL: malformed body returned ${status} (expected 4xx)"
+    FAIL=$((FAIL + 1))
+fi
+
+content_type="$(awk 'tolower($1)=="content-type:"{$1=""; sub(/^[ \t]+/,""); print; exit}' "${headers}" | tr -d '\r')"
+case "${content_type}" in
+    application/problem+json*)
+        echo "PASS: malformed-body response Content-Type='${content_type}'"
+        PASS=$((PASS + 1))
+        ;;
+    *)
+        echo "FAIL: malformed-body response Content-Type='${content_type}' (expected application/problem+json)"
+        echo "--- raw headers ---"; cat "${headers}" || true
+        FAIL=$((FAIL + 1))
+        ;;
+esac
+
+if grep -qE '"status":\s*400' "${body}" && grep -qE '"title":\s*"Bad Request"' "${body}"; then
+    echo "PASS: malformed-body response is RFC 7807 ProblemDetails"
+    PASS=$((PASS + 1))
+else
+    echo "FAIL: malformed-body response missing ProblemDetails fields (status/title)"
+    echo "--- body ---"; cat "${body}" || true
+    FAIL=$((FAIL + 1))
+fi
+rm -f "${headers}" "${body}"
 
 section "Results"
 echo "PASS=${PASS} FAIL=${FAIL}"
