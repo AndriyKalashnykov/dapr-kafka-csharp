@@ -34,11 +34,12 @@ MERMAID_CLI_VERSION := 11.12.0
 
 # === Kafka / Dapr pinned versions (Renovate-tracked via inline comments). ===
 # renovate: datasource=github-releases depName=dapr/dapr
-DAPR_CHART_VERSION := 1.17.5
+DAPR_CHART_VERSION := 1.17.6
 
 # Strimzi operator (upstream Apache Kafka on K8s, replaces the Bitnami chart path).
+# 1.0.0+ supports only the `v1` CRD API; `k8s/strimzi-kafka.yaml` uses `kafka.strimzi.io/v1`.
 # renovate: datasource=github-releases depName=strimzi/strimzi-kafka-operator
-STRIMZI_OPERATOR_VERSION := 0.46.0
+STRIMZI_OPERATOR_VERSION := 1.0.0
 
 # The Compose-path Kafka broker version lives in .env (KAFKA_IMAGE=apache/kafka:X.Y.Z@sha256:...);
 # docker-compose.yaml reads it directly. Renovate tracks it via the .env custom manager.

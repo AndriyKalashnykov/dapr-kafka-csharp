@@ -13,11 +13,11 @@ node = "24"
 # them invites a future contributor to add a duplicate `custom.regex` manager
 # (the duplicate-PR trap documented in /renovate skill §".mise.toml — DO NOT add").
 "aqua:hadolint/hadolint" = "2.14.0"
-"aqua:nektos/act" = "0.2.87"
+"aqua:nektos/act" = "0.2.88"
 "aqua:dapr/cli" = "1.17.1"
 "aqua:aquasecurity/trivy" = "0.70.0"
 "aqua:gitleaks/gitleaks" = "8.30.1"
 "aqua:kubernetes-sigs/kind" = "0.31.0"
 "aqua:kubernetes-sigs/cloud-provider-kind" = "0.10.0"
 "aqua:kubernetes/kubectl" = "1.35.4"
-"aqua:helm/helm" = "3.20.2"
+"aqua:helm/helm" = "4.1.4"

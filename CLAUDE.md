@@ -141,9 +141,11 @@ make mermaid-lint   # Parse every ```mermaid block via pinned minlag/mermaid-cli
 ## Key Details
 
 - **Version manager**: mise (`.mise.toml`) — pins `dotnet`, `node`, `hadolint`, `act`, `dapr` CLI, `trivy`, `gitleaks`, `kind`, `cloud-provider-kind`, `kubectl`, `helm`. Single source of truth for CLI tooling. Tracked by Renovate's native `mise` manager (no `# renovate:` annotations needed in `.mise.toml`).
+- **.NET SDK ↔ runtime mapping**: `global.json` pins SDK `10.0.203`, which maps to .NET runtime `10.0.7`. The Dockerfile uses the rolling tag `mcr.microsoft.com/dotnet/aspnet:10.0` digest-pinned; Renovate's `dockerfile` manager bumps the digest as Microsoft publishes newer 10.0.x runtimes. `rollForward: latestMajor` in `global.json` permits SDK/runtime drift across the 10.x line. Watch for drift in CI when SDK and runtime advance independently.
+- **Dapr Dashboard Helm chart vs app version**: `make k8s-dapr-deploy` installs both `dapr/dapr` AND `dapr/dapr-dashboard` charts at version `$(DAPR_CHART_VERSION)`. The Dashboard's underlying `appVersion` (e.g., 0.15.0) tracks separately from the chart version. Renovate sees only the chart pin (via the DAPR_CHART_VERSION Makefile constant), not the app version. Bumping the app version requires a Dashboard-chart release that bundles the new app version.
 - **K8s safety**: every `kubectl`/`helm` recipe is bound to `--context=kind-$(KIND_CLUSTER_NAME)` via the `KUBECTL` Makefile variable (and the `HELM_CTX` array in `scripts/kafka.sh`). Prevents cross-cluster bleed when other KinD-using projects rewrite `~/.kube/config` mid-session.
 - **Namespaces** are sourced from `DAPR_APP_NS` (`dapr-app`) and `DAPR_SYSTEM_NS` (`dapr-system`) — single source of truth across all Makefile recipes.
-- **Helm version**: pinned to 3.x in `.mise.toml` (`aqua:helm/helm`). Helm 4 is stable but introduces SDK/plugin API breaking changes; no Helm 4 feature is required by this project (Strimzi + Dapr charts both publish for 3.x). Renovate keeps the 3.x patch flowing. Move to Helm 4 only when a chart we use drops 3.x support — there's no other compelling trigger.
+- **Helm version**: Helm 4.x (`aqua:helm/helm = "4.1.4"` in `.mise.toml`). Helm 4 backward-compatibility for `apiVersion: v2` charts is good — both `dapr/dapr` and `strimzi/strimzi-kafka-operator` charts install cleanly under Helm 4 without code changes. We use only `repo add` / `repo update` / `upgrade --install` / `uninstall` / `ls`, all of which behave identically in v3 and v4. Helm 4's plugin SDK is a separate API surface from the CLI; the SDK-only breaking changes don't affect us. Renovate tracks via the mise manager.
 - .NET SDK version pinned in `global.json` (10.0.201, `rollForward: latestMajor`, `allowPrerelease: true`)
 - All projects target `net10.0`
 - Each project has its own `nuget.config` pointing to NuGet v3 feed
@@ -174,9 +176,7 @@ The weekly cleanup workflow (`.github/workflows/cleanup-runs.yml`) prunes runs o
 
 Deferred items waiting on upstream. Re-evaluate on each `/upgrade-analysis` pass.
 
-- [ ] **Strimzi 0.46 → 1.0 (major API migration)** — Strimzi 1.0.0 dropped support for `v1beta2`, `v1beta1`, `v1alpha1` CRD APIs; only `v1` is supported. Our `k8s/strimzi-kafka.yaml` uses `kafka.strimzi.io/v1beta2` and Kafka 4.0.0 (1.0.0 requires ≥4.1.0). Plan: separate PR running Strimzi's CRD-conversion procedure (`strimzi/strimzi-kafka-operator` 0.46→0.51→1.0 staged, OR direct with API conversion); flip CR `apiVersion: v1beta2` → `v1`; bump `spec.kafka.version: 4.0.0` → `4.2.0`. Verify `make k8s-test` 120s timeout still suffices on Kafka 4.2 image. Trigger: when comfortable scheduling a K8s e2e regression cycle.
 - [ ] **kubectl 1.36 / kindest/node 1.36** — both are released, but `kind 0.31.0` still ships `kindest/node:v1.35.0` as its default. Bumping kubectl past 1.36 while the cluster is 1.35 creates a 1-minor skew (acceptable but uncomfortable). Trigger: when kind 0.32+ ships and defaults to v1.36. Renovate will PR the three independently — verify skew window before merging.
-- [ ] **Renovate group rule for TUnit** — currently the 4 test projects' TUnit pins (`models.UnitTests`, `producer.UnitTests`, `producer.IntegrationTests`, `consumer.IntegrationTests`) bump as 4 separate Renovate PRs. Add a packageRule: `{ "groupName": "TUnit", "matchPackageNames": ["/^TUnit/"] }` to `renovate.json` so they group into one PR.
 
 ## Skills
 

@@ -6,8 +6,14 @@
 #
 # Bootstrap service for clients (Dapr pubsub component, kafka CLI, etc.):
 #   dapr-kafka-kafka-bootstrap.kafka.svc.cluster.local:9092
+#
+# API version: kafka.strimzi.io/v1 — required by Strimzi 1.0.0+ (the older v1beta2 /
+# v1beta1 / v1alpha1 APIs were removed). Pre-1.0 clusters need the conversion procedure
+# at https://strimzi.io/docs/operators/1.0.0/deploying.html#assembly-api-conversion-str
+# before upgrading the operator; this project is being deployed fresh against 1.0+
+# so the CR is authored as v1 directly.
 ---
-apiVersion: kafka.strimzi.io/v1beta2
+apiVersion: kafka.strimzi.io/v1
 kind: KafkaNodePool
 metadata:
   name: dual-role
@@ -22,7 +28,7 @@ spec:
   storage:
     type: ephemeral
 ---
-apiVersion: kafka.strimzi.io/v1beta2
+apiVersion: kafka.strimzi.io/v1
 kind: Kafka
 metadata:
   name: dapr-kafka
@@ -34,7 +40,9 @@ spec:
   kafka:
     # Kafka version comes from the operator's bundled image — Strimzi pulls
     # quay.io/strimzi/kafka:<operator-version>-kafka-<this-version> automatically.
-    version: 4.0.0
+    # Strimzi 1.0.0 bundles Kafka 4.1.0, 4.1.1, 4.1.2, and 4.2.0 — picking 4.2.0
+    # to match the Compose-path broker (.env KAFKA_IMAGE).
+    version: 4.2.0
     listeners:
       - name: plain
         port: 9092
@@ -51,7 +59,7 @@ spec:
     topicOperator: {}
     userOperator: {}
 ---
-apiVersion: kafka.strimzi.io/v1beta2
+apiVersion: kafka.strimzi.io/v1
 kind: KafkaTopic
 metadata:
   name: sampletopic
