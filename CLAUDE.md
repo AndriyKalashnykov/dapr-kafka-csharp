@@ -174,7 +174,9 @@ The weekly cleanup workflow (`.github/workflows/cleanup-runs.yml`) prunes runs o
 
 Deferred items waiting on upstream. Re-evaluate on each `/upgrade-analysis` pass.
 
-_No items currently deferred._
+- [ ] **Strimzi 0.46 → 1.0 (major API migration)** — Strimzi 1.0.0 dropped support for `v1beta2`, `v1beta1`, `v1alpha1` CRD APIs; only `v1` is supported. Our `k8s/strimzi-kafka.yaml` uses `kafka.strimzi.io/v1beta2` and Kafka 4.0.0 (1.0.0 requires ≥4.1.0). Plan: separate PR running Strimzi's CRD-conversion procedure (`strimzi/strimzi-kafka-operator` 0.46→0.51→1.0 staged, OR direct with API conversion); flip CR `apiVersion: v1beta2` → `v1`; bump `spec.kafka.version: 4.0.0` → `4.2.0`. Verify `make k8s-test` 120s timeout still suffices on Kafka 4.2 image. Trigger: when comfortable scheduling a K8s e2e regression cycle.
+- [ ] **kubectl 1.36 / kindest/node 1.36** — both are released, but `kind 0.31.0` still ships `kindest/node:v1.35.0` as its default. Bumping kubectl past 1.36 while the cluster is 1.35 creates a 1-minor skew (acceptable but uncomfortable). Trigger: when kind 0.32+ ships and defaults to v1.36. Renovate will PR the three independently — verify skew window before merging.
+- [ ] **Renovate group rule for TUnit** — currently the 4 test projects' TUnit pins (`models.UnitTests`, `producer.UnitTests`, `producer.IntegrationTests`, `consumer.IntegrationTests`) bump as 4 separate Renovate PRs. Add a packageRule: `{ "groupName": "TUnit", "matchPackageNames": ["/^TUnit/"] }` to `renovate.json` so they group into one PR.
 
 ## Skills
 
