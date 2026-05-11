@@ -1,0 +1,66 @@
+# Strimzi Kafka cluster (single-broker KRaft, plaintext) for the K8s Dapr pub/sub demo.
+#
+# Replaces the legacy Bitnami chart + bitnamilegacy/kafka image with upstream Apache Kafka
+# orchestrated by the Strimzi operator. The operator is installed separately via Helm
+# (`make k8s-kafka-deploy` → scripts/kafka.sh → strimzi/strimzi-kafka-operator chart).
+#
+# Bootstrap service for clients (Dapr pubsub component, kafka CLI, etc.):
+#   dapr-kafka-kafka-bootstrap.kafka.svc.cluster.local:9092
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaNodePool
+metadata:
+  name: dual-role
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: dapr-kafka
+spec:
+  replicas: 1
+  roles:
+    - controller
+    - broker
+  storage:
+    type: ephemeral
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: dapr-kafka
+  namespace: kafka
+  annotations:
+    strimzi.io/node-pools: enabled
+    strimzi.io/kraft: enabled
+spec:
+  kafka:
+    # Kafka version comes from the operator's bundled image — Strimzi pulls
+    # quay.io/strimzi/kafka:<operator-version>-kafka-<this-version> automatically.
+    version: 4.0.0
+    listeners:
+      - name: plain
+        port: 9092
+        type: internal
+        tls: false
+    config:
+      offsets.topic.replication.factor: 1
+      transaction.state.log.replication.factor: 1
+      transaction.state.log.min.isr: 1
+      default.replication.factor: 1
+      min.insync.replicas: 1
+      auto.create.topics.enable: true
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: sampletopic
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: dapr-kafka
+spec:
+  partitions: 1
+  replicas: 1
+  config:
+    retention.ms: 7200000      # 2h — demo only, expire fast
+    segment.bytes: 1073741824

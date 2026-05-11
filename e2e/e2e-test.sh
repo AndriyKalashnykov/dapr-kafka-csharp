@@ -73,15 +73,48 @@ assert_true "at least 2 messages delivered (got ${count})" "[ '${count}' -ge 2 ]
 section "Negative case — consumer rejects malformed POST to /sampletopic"
 gateway_ip="$(kubectl get svc -n "${NS}" consumer -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)"
 if [ -n "${gateway_ip}" ]; then
-    status="$(curl -s -o /dev/null -w '%{http_code}' -X POST "http://${gateway_ip}/sampletopic" \
+    headers="$(mktemp)"; body="$(mktemp)"
+    trap 'rm -f "$headers" "$body"' RETURN
+    status="$(curl -s -o "${body}" -D "${headers}" -w '%{http_code}' \
+        -X POST "http://${gateway_ip}/sampletopic" \
         -H 'Content-Type: application/json' -d 'not-json' || echo "000")"
+
+    # Assertion 1: status is 4xx (rejection, not 5xx server error)
     if [ "${status}" -ge 400 ] && [ "${status}" -lt 500 ]; then
         echo "PASS: malformed body returned ${status}"
         PASS=$((PASS + 1))
     else
         echo "FAIL: malformed body returned ${status} (expected 4xx)"
+        echo "--- response body ---"; cat "${body}" || true
         FAIL=$((FAIL + 1))
     fi
+
+    # Assertion 2: response is JSON ProblemDetails, not text/HTML — contract check that
+    # ASP.NET Core's default ProblemDetails middleware is wired and the consumer hasn't
+    # silently regressed to returning plain text on bad input.
+    content_type="$(awk 'BEGIN{IGNORECASE=1} /^content-type:/{sub(/^[^:]+:[ \t]+/,""); print; exit}' "${headers}" | tr -d '\r')"
+    case "${content_type}" in
+        application/problem+json*|application/json*)
+            echo "PASS: malformed-body response Content-Type is JSON (${content_type})"
+            PASS=$((PASS + 1))
+            ;;
+        *)
+            echo "FAIL: malformed-body response Content-Type is '${content_type}' (expected application/(problem+)?json)"
+            FAIL=$((FAIL + 1))
+            ;;
+    esac
+
+    # Assertion 3: body has a ProblemDetails-shaped field (status or title) — confirms
+    # the framework's standard error envelope, not an empty body or HTML page.
+    if grep -qE '"(status|title|type)"[[:space:]]*:' "${body}"; then
+        echo "PASS: malformed-body response carries a ProblemDetails field"
+        PASS=$((PASS + 1))
+    else
+        echo "FAIL: malformed-body response missing ProblemDetails field"
+        echo "--- response body ---"; cat "${body}" || true
+        FAIL=$((FAIL + 1))
+    fi
+    rm -f "${headers}" "${body}"; trap - RETURN
 else
     echo "SKIP: LoadBalancer IP not available — cloud-provider-kind not running?"
 fi
