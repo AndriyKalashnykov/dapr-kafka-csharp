@@ -41,7 +41,7 @@ cd producer && dapr run --app-id producer --resources-path ../components -- dotn
 
 `make dapr-run-consumer` and `make dapr-run-producer` invoke `dapr run` under the hood — they are NOT plain `dotnet run`. Without the sidecar, `PublishEventAsync` and the topic subscription do not work.
 
-A 3-node KRaft Kafka cluster with SASL+SSL is available via `docker-compose.yaml` (advanced; requires Dapr component changes):
+A 3-node KRaft Kafka cluster (plaintext) is available via `docker-compose.yaml` (advanced; requires Dapr component changes):
 ```bash
 make local-kafka-run   # Start
 make local-kafka-stop  # Stop
@@ -74,6 +74,7 @@ models/             Shared library (net10.0, no dependencies)
 - Dapr component config: `components/kafka-pubsub.yaml` (shared by producer and consumer for local Compose) / `k8s/kafka-pubsub.yaml` (Kubernetes)
 - Consumer uses `Startup.cs` pattern (not minimal API), with `UseCloudEvents()` middleware to unwrap CloudEvents payloads
 - JSON serialization uses camelCase naming policy (`JsonNamingPolicy.CamelCase`)
+- Consumer error responses follow RFC 7807 ProblemDetails — malformed JSON returns `400 Bad Request` with `application/problem+json` Content-Type and a `{ type, title, status, detail }` body via the `WriteProblemAsync` helper in `consumer/Startup.cs`. Asserted at three layers: integration (Content-Type + body field assertions in `ConsumeMessageTests`), e2e KinD (`e2e/e2e-test.sh`), and e2e Compose (`e2e/e2e-compose-test.sh`).
 
 ## Kubernetes Deployment
 
@@ -87,8 +88,8 @@ make kind-down            # stop cloud-provider-kind and delete the cluster
 # Granular
 make kind-create          # create KinD cluster (image pinned via KIND_NODE_IMAGE, Renovate-tracked)
 make kind-setup           # start cloud-provider-kind daemon (requires sudo for low-port bind)
-make k8s-dapr-deploy      # install Dapr via Helm (chart v1.17.3)
-make k8s-kafka-deploy     # install Kafka (Bitnami chart v32.4.3, Kafka 4.0, SASL)
+make k8s-dapr-deploy      # install Dapr control plane via Helm 4 (chart pinned via DAPR_CHART_VERSION = 1.17.6)
+make k8s-kafka-deploy     # install Strimzi operator (STRIMZI_OPERATOR_VERSION = 1.0.0) + apply k8s/strimzi-kafka.yaml (single-broker KRaft Kafka 4.2.0, plaintext)
 make k8s-image-load       # build images and `kind load docker-image` into the cluster
 make k8s-workload-deploy  # apply namespace + Dapr component + producer + consumer
 
@@ -103,14 +104,13 @@ K8s manifests are in `k8s/` (namespace: `dapr-app`). `deps-k8s` checks for `kind
 
 ## Testing
 
-Test projects live under `tests/` and use **TUnit 1.37.0** (portfolio rule at `~/.claude/rules/dotnet/testing.md` — xUnit/NUnit/MSTest are migration-required) with **FakeItEasy 9.0.1** for mocking:
+Test projects live under `tests/` and use **TUnit 1.44.0** (portfolio rule at `~/.claude/rules/dotnet/testing.md` — xUnit/NUnit/MSTest are migration-required) with **FakeItEasy 9.0.1** for mocking:
 
 | Project | Layer | Notes |
 |---------|-------|-------|
-| `tests/models.UnitTests` | Unit | Pure-data tests on `SampleMessage` |
-| `tests/producer.UnitTests` | Unit | Mocks `DaprClient` via FakeItEasy |
-| `tests/producer.IntegrationTests` | Integration | Real publish loop assertions |
-| `tests/consumer.IntegrationTests` | Integration | `WebApplicationFactory<Program>` for in-process HTTP + CloudEvents |
+| `tests/models.UnitTests` | Unit | `SampleMessage` wire schema — round-trip, camelCase property names, null/empty-string survival |
+| `tests/producer.UnitTests` | Unit | `MessageGeneratorTests` covers the random-message generator; `ProducerPublishTests` covers the publish-loop resilience against transient broker errors (fake `DaprClient` throws on iteration 1, asserts iteration 2 still runs) |
+| `tests/consumer.IntegrationTests` | Integration | `WebApplicationFactory<Program>` for in-process HTTP + CloudEvents middleware + ProblemDetails contract assertions |
 
 The Makefile exposes the three-layer test pyramid:
 
@@ -146,24 +146,28 @@ make mermaid-lint   # Parse every ```mermaid block via pinned minlag/mermaid-cli
 - **K8s safety**: every `kubectl`/`helm` recipe is bound to `--context=kind-$(KIND_CLUSTER_NAME)` via the `KUBECTL` Makefile variable (and the `HELM_CTX` array in `scripts/kafka.sh`). Prevents cross-cluster bleed when other KinD-using projects rewrite `~/.kube/config` mid-session.
 - **Namespaces** are sourced from `DAPR_APP_NS` (`dapr-app`) and `DAPR_SYSTEM_NS` (`dapr-system`) — single source of truth across all Makefile recipes.
 - **Helm version**: Helm 4.x (`aqua:helm/helm = "4.1.4"` in `.mise.toml`). Helm 4 backward-compatibility for `apiVersion: v2` charts is good — both `dapr/dapr` and `strimzi/strimzi-kafka-operator` charts install cleanly under Helm 4 without code changes. We use only `repo add` / `repo update` / `upgrade --install` / `uninstall` / `ls`, all of which behave identically in v3 and v4. Helm 4's plugin SDK is a separate API surface from the CLI; the SDK-only breaking changes don't affect us. Renovate tracks via the mise manager.
-- .NET SDK version pinned in `global.json` (10.0.201, `rollForward: latestMajor`, `allowPrerelease: true`)
+- .NET SDK version pinned in `global.json` (`10.0.203`, `rollForward: latestMajor`, `allowPrerelease: true`). See the **.NET SDK ↔ runtime mapping** bullet above for the SDK/runtime drift story.
 - All projects target `net10.0`
 - Each project has its own `nuget.config` pointing to NuGet v3 feed
 - Docker images: both producer and consumer use `dotnet/aspnet:10.0` base (Dapr.AspNetCore requires ASP.NET runtime)
 - `Directory.Build.props` enforces `TreatWarningsAsErrors` and `RestorePackagesWithLockFile` across all projects
-- Renovate bot manages dependency updates (mise, NuGet, Dockerfiles, docker-compose, GitHub Actions, and inline `# renovate:` comments in Makefile / `.mise.toml`)
+- Renovate covers 81 dependencies across 7 managers: `mise` (`.mise.toml` aqua backends + core tools), `nuget` (`*.csproj`), `dockerfile` (`FROM` digests), `docker-compose` (`image:`), `kubernetes` (`k8s/*.yaml` `image:` fields), `github-actions` (`uses:` refs), and four `custom.regex` managers — Makefile plain version constants, Makefile `repo:tag@sha256:` image refs, `.env` Kafka image, and inline `# renovate:` annotations above env-block constants in `.github/workflows/*.yml` (CST + ZAP versions). `.mise.toml` does NOT carry `# renovate:` comments — the native `mise` manager tracks every entry directly.
 
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yml`) runs on push to `main`, tag pushes (`v*`), and pull requests:
 
+- `changes` (`dorny/paths-filter` detector) gates the heavy jobs — doc-only pushes skip downstream without deadlocking the Rulesets `ci-pass` requirement. Force-true on `refs/tags/*` so publish runs always go through the full pipeline
 - `static-check` → gates everything downstream (format + warnings-as-errors + hadolint)
 - `build`, `test`, `integration-test` run in parallel after `static-check` passes
-- `e2e` runs after `build` + `test` (skipped when scaffolded e2e script is missing)
-- On tag pushes (`v*`), a matrix `docker` job runs the full pre-push hardening pipeline:
+- `e2e` (Compose) runs after `build` + `test` — `make e2e-compose` exercises the full Dapr round-trip against a local `apache/kafka:4.2.0` broker
+- `e2e-kind` runs after `build` + `test` — `helm/kind-action` creates a KinD cluster, then `make k8s-dapr-deploy → k8s-kafka-deploy (Strimzi 1.0) → k8s-workload-deploy → k8s-test` validates the production K8s path on every push
+- On tag pushes (`v*`), a matrix `docker` job runs the full pre-push hardening pipeline (5 gates):
   - Gate 1 — local single-arch build (`load: true`) with GHA cache
-  - Gate 2 — Trivy image scan (CRITICAL/HIGH blocking, `scanners: vuln,secret,misconfig`)
+  - Gate 2 — Trivy image scan (CRITICAL/HIGH blocking, `scanners: vuln,secret,misconfig`, `ignore-unfixed: true`)
+  - Gate 2.5 — `container-structure-test` v1.22.1 against `tests/structure/{producer,consumer}.yaml` — asserts `.dll` files present at `/app`, non-root `USER` UID 1654, ENTRYPOINT/WORKDIR match the Dockerfile
   - Gate 3 — Smoke test (boot-marker grep: producer = `Publishing data:`, consumer = `Now listening on:` / `Application started`)
+  - Gate 3.5 — DAST: OWASP ZAP 2.17.0 baseline scan against the consumer's `:6000` endpoint (consumer-only; producer has no HTTP listener). `continue-on-error` because the Dapr-coupled consumer rejects every non-CloudEvents request; the HTML+JSON report uploads as the `zap-baseline-consumer` artifact for manual triage
   - Gate 4 — Multi-arch build + push to GHCR (`linux/amd64`, `linux/arm64`, `provenance: false` + `sbom: false` Pattern A)
   - Gate 5 — Cosign keyless OIDC signing by digest (`id-token: write` required at job level)
 - `ci-pass` aggregates all upstream jobs with `if: always()` — single required status check for branch protection
