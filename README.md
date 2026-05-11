@@ -4,11 +4,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](https://opensource.org/licenses/MIT)
 [![Renovate enabled](https://img.shields.io/badge/renovate-enabled-brightgreen.svg)](https://app.renovatebot.com/dashboard#github/AndriyKalashnykov/dapr-kafka-csharp)
 
-# Dapr Pub/Sub on Apache Kafka — .NET 10 Reference
+# Dapr Pub/Sub on Apache Kafka — .NET 10 Starter
 
-Two services — a console producer and an ASP.NET Core consumer — exchange `SampleMessage` events through Dapr sidecars backed by Apache Kafka. The consumer uses Dapr's CloudEvents middleware to unwrap payloads and filters on `event.type == com.dapr.event.sent`.
+Delivers a production-ready Dapr pub/sub implementation in C# on .NET 10: a console producer and an ASP.NET Core consumer exchange `SampleMessage` events through Dapr sidecars over Apache Kafka. The consumer unwraps CloudEvents envelopes via Dapr's middleware, filters on `event.type == com.dapr.event.sent`, and returns RFC 7807 ProblemDetails on malformed input. The same workload runs unchanged on two paths — Docker Compose against `apache/kafka:4.2.0` for fast iteration, or Kubernetes via KinD with Dapr 1.17 (Helm 4) and Strimzi 1.0 provisioning a single-broker KRaft Kafka cluster on the `kafka.strimzi.io/v1` API.
 
-Runs locally via Docker Compose (`apache/kafka`) or on Kubernetes via KinD + cloud-provider-kind (Strimzi operator manages upstream Apache Kafka in KRaft mode). The test pyramid covers three layers on TUnit + FakeItEasy: unit (in-process, mocked), integration (in-process via `WebApplicationFactory` + FakeItEasy), and end-to-end (Compose or KinD). The tag-triggered release pipeline Trivy-scans the image, smoke-tests it via boot-marker grep, container-structure-tests metadata, runs an OWASP ZAP DAST baseline against the consumer, publishes multi-arch (amd64/arm64) to GHCR, and cosign-signs by digest.
+A three-layer test pyramid on TUnit 1.44 + FakeItEasy covers unit (wire schema, publish-loop resilience), integration (consumer HTTP, CloudEvents middleware, and ProblemDetails contract via `WebApplicationFactory`), and end-to-end (full Dapr round-trip on Compose and KinD, with the `e2e-kind` CI job validating the production K8s path on every push). Tag releases pass five supply-chain gates before publishing to GHCR — Trivy CVE scan (CRITICAL/HIGH blocking), `container-structure-test` filesystem and non-root posture checks, boot-marker smoke test, OWASP ZAP DAST baseline against the consumer, and cosign keyless OIDC signing of the multi-arch (`linux/amd64` + `linux/arm64`) digest. Renovate tracks every version pin across `.mise.toml`, `Makefile`, NuGet, `.env`, Dockerfiles, k8s manifests, GitHub Actions, and inline workflow annotations (81 deps across 7 managers).
 
 ```mermaid
 C4Context
@@ -27,8 +27,8 @@ C4Context
 | Language | C# on .NET 10 (`10.0.203` via `global.json`) | LTS through 2028-11; matches Dapr.AspNetCore 10 support matrix |
 | Runtime image | `mcr.microsoft.com/dotnet/aspnet:10.0` | Required by Dapr.AspNetCore (pulls in ASP.NET runtime) |
 | Dapr SDK | `Dapr.AspNetCore`, `Dapr.Client` | Idiomatic sidecar integration with CloudEvents unwrapping |
-| Dapr CLI | 1.17.1 (mise-pinned) | Runtime chart is 1.17.5 via `DAPR_CHART_VERSION`; CLI and runtime version independently |
-| Message broker | Apache Kafka 4.x — 4.2.0 (Compose) / 4.0.0 (K8s) | No Zookeeper; `apache/kafka` official image for local Compose; Strimzi operator on K8s pulling the matching `quay.io/strimzi/kafka` image |
+| Dapr CLI | 1.17.1 (mise-pinned) | Runtime chart is 1.17.6 via `DAPR_CHART_VERSION`; CLI and runtime version independently |
+| Message broker | Apache Kafka 4.2.0 | No Zookeeper, KRaft mode. `apache/kafka` official image for local Compose; Strimzi 1.0 operator on K8s pulling `quay.io/strimzi/kafka:1.0.0-kafka-4.2.0` |
 | PubSub component | `sampletopic` (pubsub.kafka) | Topic name and component name match by convention |
 | Container tooling | Docker + Buildx (multi-arch amd64/arm64) | ARM64 coverage for Apple Silicon and Graviton |
 | Kubernetes | KinD + cloud-provider-kind + Dapr Helm chart | Kind-team maintained, single Docker network, host-side LoadBalancer daemon |
@@ -59,7 +59,7 @@ The `dapr-run-*` targets invoke `dapr run --app-id ... -- dotnet run`. Without t
 | [Dapr CLI](https://docs.dapr.io/getting-started/install-dapr-cli/) | 1.17.1 (mise-pinned) | Run Dapr sidecars locally |
 | [KinD](https://kind.sigs.k8s.io/) | 0.31.0 (mise-pinned) | Local Kubernetes cluster (for `make kind-up`) |
 | [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind) | 0.10.0 (mise-pinned) | LoadBalancer controller for KinD (allocates IPs on the `kind` Docker network) |
-| [Helm](https://helm.sh/) | latest | Deploy Dapr/Kafka to Kubernetes (optional) |
+| [Helm](https://helm.sh/) | 4.1.4 (mise-pinned) | Deploy Dapr control plane and Strimzi operator |
 
 Install CLI tooling via mise:
 
@@ -77,9 +77,9 @@ C4Container
     Person(operator, "Operator")
     System_Boundary(app, "Dapr Kafka PubSub") {
         Container(producer, "Producer", ".NET 10 console, Dapr.Client 1.17.9", "Publishes SampleMessage every 10s")
-        Container(producer_dapr, "Dapr Sidecar", "daprd 1.17.5, injected at deploy-time", "Produces to Kafka via pubsub component")
+        Container(producer_dapr, "Dapr Sidecar", "daprd 1.17.6, injected at deploy-time", "Produces to Kafka via pubsub component")
         Container(consumer, "Consumer", ".NET 10, ASP.NET Core, Dapr.AspNetCore 1.17.9", "Handles POST /sampletopic on :6000")
-        Container(consumer_dapr, "Dapr Sidecar", "daprd 1.17.5, injected at deploy-time", "Subscribes to Kafka, delivers CloudEvents")
+        Container(consumer_dapr, "Dapr Sidecar", "daprd 1.17.6, injected at deploy-time", "Subscribes to Kafka, delivers CloudEvents")
     }
     ContainerDb(kafka, "Kafka", "Apache Kafka 4.x (KRaft)", "Topic: sampletopic")
     Rel(operator, producer, "dapr run / make dapr-run-producer")
@@ -103,7 +103,7 @@ flowchart TB
         cpk["cloud-provider-kind<br/>(LoadBalancer daemon)"]
         subgraph cluster["KinD cluster: dapr-kafka<br/>(kindest/node:v1.35.0)"]
             ns_dapr["Namespace: dapr-system<br/>Dapr control plane<br/>(operator · placement · sentry · sidecar-injector)"]
-            ns_kafka["Namespace: kafka<br/>Strimzi operator + Kafka CR<br/>(upstream apache/kafka 4.0, KRaft)"]
+            ns_kafka["Namespace: kafka<br/>Strimzi 1.0 operator + Kafka CR<br/>(upstream apache/kafka 4.2, KRaft)"]
             ns_app["Namespace: dapr-app<br/>producer + consumer pods<br/>(see Event Flow below)"]
         end
     end
@@ -348,9 +348,9 @@ The `docker` job runs the following gates **before** any image is pushed to GHCR
 |---|------|---------|------|
 | 1 | Build local single-arch image | Build regressions on the runner architecture | `docker/build-push-action` with `load: true` |
 | 2 | **Trivy image scan** (CRITICAL/HIGH blocking) | CVEs in the base image, OS packages, build layers | `aquasecurity/trivy-action` with `image-ref:` |
-| 2.5 | **Container structure test** | Image contents and metadata drift — required `.dll` files at `/app`, non-root `USER` UID, ENTRYPOINT/WORKDIR match the Dockerfile, dotnet runtime resolves | `GoogleContainerTools/container-structure-test` against `tests/structure/{producer,consumer}.yaml` |
+| 2.5 | **Container structure test** | Image contents and metadata drift — required `.dll` files at `/app`, non-root `USER` UID, ENTRYPOINT/WORKDIR match the Dockerfile, dotnet runtime resolves | `GoogleContainerTools/container-structure-test` v1.22.1 against `tests/structure/{producer,consumer}.yaml` |
 | 3 | **Smoke test** | Image boots correctly on its own (boot-marker grep; NOT a health-curl, since both apps depend on the Dapr sidecar) | `docker run` + `docker logs` |
-| 3.5 | **DAST — OWASP ZAP baseline** (consumer only) | Passive findings on the consumer's `:6000` endpoint (security headers, TLS posture). Producer skipped — console app, no HTTP listener. `continue-on-error` because the Dapr-coupled consumer rejects every non-CloudEvents request; report uploaded as `zap-baseline-consumer` artifact for triage rather than gating | `zaproxy/zaproxy:stable zap-baseline.py` |
+| 3.5 | **DAST — OWASP ZAP baseline** (consumer only) | Passive findings on the consumer's `:6000` endpoint (security headers, TLS posture). Producer skipped — console app, no HTTP listener. `continue-on-error` because the Dapr-coupled consumer rejects every non-CloudEvents request; report uploaded as `zap-baseline-consumer` artifact for triage rather than gating | `ghcr.io/zaproxy/zaproxy:2.17.0 zap-baseline.py` |
 | 4 | Multi-arch build + push | Publishes for both `linux/amd64` and `linux/arm64` | `docker/build-push-action` |
 | 5 | **Cosign keyless OIDC signing** | Sigstore signature on the manifest digest | `sigstore/cosign-installer` + `cosign sign --yes ...@<digest>` |
 
