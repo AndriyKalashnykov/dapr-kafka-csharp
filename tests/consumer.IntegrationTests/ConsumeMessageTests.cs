@@ -46,19 +46,23 @@ public sealed class ConsumeMessageTests
     }
 
     [Test]
-    public async Task Post_SampletopicWithMalformedBody_Returns4xx()
+    public async Task Post_SampletopicWithMalformedBody_ReturnsProblemDetails400()
     {
         using var client = _fixture.Factory.CreateClient();
         using var body = new StringContent("not-json-at-all", Encoding.UTF8, "application/json");
 
         using var resp = await client.PostAsync("/sampletopic", body);
 
-        await Assert.That((int)resp.StatusCode).IsGreaterThanOrEqualTo(400);
-        await Assert.That((int)resp.StatusCode).IsLessThan(500);
+        await Assert.That(resp.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
+        await Assert.That(resp.Content.Headers.ContentType?.MediaType).IsEqualTo("application/problem+json");
+
+        var problemJson = await resp.Content.ReadAsStringAsync();
+        await Assert.That(problemJson).Contains("\"status\":400");
+        await Assert.That(problemJson).Contains("\"title\":\"Bad Request\"");
     }
 
     [Test]
-    public async Task Post_SampletopicWithEmptyBody_Returns400()
+    public async Task Post_SampletopicWithNullBody_ReturnsProblemDetails400()
     {
         using var client = _fixture.Factory.CreateClient();
         using var body = new StringContent("null", Encoding.UTF8, "application/json");
@@ -66,5 +70,9 @@ public sealed class ConsumeMessageTests
         using var resp = await client.PostAsync("/sampletopic", body);
 
         await Assert.That(resp.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
+        await Assert.That(resp.Content.Headers.ContentType?.MediaType).IsEqualTo("application/problem+json");
+
+        var problemJson = await resp.Content.ReadAsStringAsync();
+        await Assert.That(problemJson).Contains("\"detail\":\"Request body deserialized to null.\"");
     }
 }

@@ -83,21 +83,43 @@ namespace Dapr.Examples.Pubsub.Consumer
             }
             catch (JsonException ex)
             {
-                context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                await context.Response.WriteAsync($"Invalid JSON payload: {ex.Message}");
+                await WriteProblemAsync(context, StatusCodes.Status400BadRequest, "Bad Request", $"Invalid JSON payload: {ex.Message}");
                 return;
             }
 
             if (message is null)
             {
-                context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                await context.Response.WriteAsync("Invalid message payload.");
+                await WriteProblemAsync(context, StatusCodes.Status400BadRequest, "Bad Request", "Request body deserialized to null.");
                 return;
             }
 
             Console.WriteLine($"message id: {message.MessageId}");
             Console.WriteLine($"message context: {message.Message}");
             Console.WriteLine($"message creation time: {message.PreviousAppTimestamp}");
+        }
+
+        // Writes an RFC 7807 ProblemDetails JSON response with the proper
+        // `application/problem+json` Content-Type. We serialize to a string FIRST
+        // then call WriteAsync(string) — earlier attempts using
+        // JsonSerializer.SerializeAsync(context.Response.Body, ...) lost the
+        // Content-Type header under Kestrel (works under WebApplicationFactory's
+        // TestServer; fails on real Kestrel). The serialize-then-write order
+        // ensures headers are committed by WriteAsync after ContentType is set.
+        private async Task WriteProblemAsync(HttpContext context, int statusCode, string title, string detail)
+        {
+            var json = JsonSerializer.Serialize(
+                new
+                {
+                    type = "about:blank",
+                    title,
+                    status = statusCode,
+                    detail,
+                },
+                serializerOptions);
+
+            context.Response.StatusCode = statusCode;
+            context.Response.ContentType = "application/problem+json";
+            await context.Response.WriteAsync(json);
         }
     }
 }

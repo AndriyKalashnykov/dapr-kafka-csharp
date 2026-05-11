@@ -89,34 +89,47 @@ if [ -n "${gateway_ip}" ]; then
         FAIL=$((FAIL + 1))
     fi
 
-    # Assertion 2: response is JSON ProblemDetails, not text/HTML — contract check that
-    # ASP.NET Core's default ProblemDetails middleware is wired and the consumer hasn't
-    # silently regressed to returning plain text on bad input.
-    content_type="$(awk 'BEGIN{IGNORECASE=1} /^content-type:/{sub(/^[^:]+:[ \t]+/,""); print; exit}' "${headers}" | tr -d '\r')"
+    # Assertion 2: response is RFC 7807 ProblemDetails — contract check that
+    # consumer/Startup.cs's WriteProblemAsync helper is reached on bad input
+    # rather than the framework's default empty-Content-Type WriteAsync(string).
+    content_type="$(awk 'tolower($1)=="content-type:"{$1=""; sub(/^[ \t]+/,""); print; exit}' "${headers}" | tr -d '\r')"
     case "${content_type}" in
-        application/problem+json*|application/json*)
-            echo "PASS: malformed-body response Content-Type is JSON (${content_type})"
+        application/problem+json*)
+            echo "PASS: malformed-body response Content-Type='${content_type}'"
             PASS=$((PASS + 1))
             ;;
         *)
-            echo "FAIL: malformed-body response Content-Type is '${content_type}' (expected application/(problem+)?json)"
+            echo "FAIL: malformed-body response Content-Type='${content_type}' (expected application/problem+json)"
             FAIL=$((FAIL + 1))
             ;;
     esac
 
-    # Assertion 3: body has a ProblemDetails-shaped field (status or title) — confirms
-    # the framework's standard error envelope, not an empty body or HTML page.
-    if grep -qE '"(status|title|type)"[[:space:]]*:' "${body}"; then
-        echo "PASS: malformed-body response carries a ProblemDetails field"
+    # Assertion 3: body has the required ProblemDetails fields (status + title).
+    if grep -qE '"status":\s*400' "${body}" && grep -qE '"title":\s*"Bad Request"' "${body}"; then
+        echo "PASS: malformed-body response is RFC 7807 ProblemDetails"
         PASS=$((PASS + 1))
     else
-        echo "FAIL: malformed-body response missing ProblemDetails field"
+        echo "FAIL: malformed-body response missing ProblemDetails fields (status/title)"
         echo "--- response body ---"; cat "${body}" || true
         FAIL=$((FAIL + 1))
     fi
     rm -f "${headers}" "${body}"; trap - RETURN
 else
     echo "SKIP: LoadBalancer IP not available — cloud-provider-kind not running?"
+fi
+
+section "Negative case — unknown route returns 404 (gateway routing sanity)"
+if [ -n "${gateway_ip:-}" ]; then
+    status="$(curl -s -o /dev/null -w '%{http_code}' "http://${gateway_ip}/nope-${RANDOM}" || echo "000")"
+    if [ "${status}" = "404" ]; then
+        echo "PASS: unknown route returned 404"
+        PASS=$((PASS + 1))
+    else
+        echo "FAIL: unknown route returned ${status} (expected 404)"
+        FAIL=$((FAIL + 1))
+    fi
+else
+    echo "SKIP: LoadBalancer IP not available"
 fi
 
 section "Results"

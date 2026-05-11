@@ -382,10 +382,21 @@ k8s-test: deps-k8s
 	@echo "=== Consumer logs (last 10 lines) ==="
 	@$(KUBECTL) logs -l app=consumer -c consumer -n $(DAPR_APP_NS) --tail=10
 	@echo ""
-	@echo "=== Verifying message flow (consumer received messages) ==="
-	@$(KUBECTL) logs -l app=consumer -c consumer -n $(DAPR_APP_NS) --tail=50 | grep -q "Message is delivered" || \
-		{ echo "Error: consumer has not received any messages yet"; exit 1; }
-	@echo "Messages flowing: producer -> Kafka -> consumer via Dapr PubSub."
+	@echo "=== Verifying message flow (poll consumer logs up to 60s for first message) ==="
+	@set -e; end=$$(( $$(date +%s) + 60 )); \
+		while [ $$(date +%s) -lt $$end ]; do \
+			if $(KUBECTL) logs -l app=consumer -c consumer -n $(DAPR_APP_NS) --tail=50 2>/dev/null | grep -q "Message is delivered"; then \
+				echo "Messages flowing: producer -> Kafka -> consumer via Dapr PubSub."; \
+				exit 0; \
+			fi; \
+			sleep 3; \
+		done; \
+		echo "Error: consumer has not received any messages within 60s"; \
+		echo "--- consumer logs ---"; \
+		$(KUBECTL) logs -l app=consumer -c consumer -n $(DAPR_APP_NS) --tail=30 || true; \
+		echo "--- producer logs ---"; \
+		$(KUBECTL) logs -l app=producer -c producer -n $(DAPR_APP_NS) --tail=30 || true; \
+		exit 1
 	@echo ""
 	@echo "K8s integration test passed."
 
