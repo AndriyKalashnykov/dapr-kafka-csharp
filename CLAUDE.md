@@ -134,14 +134,14 @@ make secrets        # gitleaks scan
 make trivy-fs       # Trivy filesystem scan (CRITICAL/HIGH)
 make trivy-config   # Trivy config scan on k8s/
 make mermaid-lint   # Parse every ```mermaid block via pinned minlag/mermaid-cli (same engine github.com uses)
-make diagrams       # Render C4-PlantUML Context/Container heroes to committed PNGs (pinned plantuml/plantuml, vendored stdlib)
+make diagrams       # Render C4-PlantUML Context/Container/Deployment views to committed PNGs (pinned plantuml/plantuml, vendored stdlib)
 make diagrams-check # Drift gate: fail if a committed PNG differs from its .puml source or the pinned renderer
 ```
 
 Two diagram gates are wired into `static-check`:
 
-- `mermaid-lint` (pinned `minlag/mermaid-cli`, `MERMAID_CLI_VERSION`, Renovate-tracked) parses the two inline **Mermaid flowcharts** the README embeds (Cluster Topology — KinD, Event Flow) — a broken block renders as a red "Unable to render rich display" box on the GitHub homepage.
-- `diagrams-check` guards the two **C4-PlantUML** heroes (Context, Container). Source is `docs/diagrams/*.puml`; the C4-PlantUML stdlib is vendored under `docs/diagrams/C4-PlantUML/` (rendered with `-DRELATIVE_INCLUDE=.`) so `make diagrams` needs no network — killing the `raw.githubusercontent.com` HTTP-429 render flake. Rendered PNGs are committed under `docs/diagrams/out/`; `diagrams-check` re-renders and fails on any drift (source edit OR a `plantuml/plantuml` renderer bump, via a version-stamped sentinel). `PLANTUML_VERSION` is pinned in the Makefile and Renovate-tracked; because a renderer bump requires re-rendering the PNGs (which Renovate cannot do), a `renovate.json` packageRule sets `automerge: false` for `plantuml/plantuml` — its bump PR is shepherded by hand (`make diagrams`, commit). `C4_PLANTUML_VERSION` (the vendored stdlib tag) is deliberately NOT Renovate-tracked; bump it manually with `make vendor-diagrams`.
+- `mermaid-lint` (pinned `minlag/mermaid-cli`, `MERMAID_CLI_VERSION`, Renovate-tracked) parses the inline **Mermaid** Event Flow diagram the README embeds (a runtime message flow) — a broken block renders as a red "Unable to render rich display" box on the GitHub homepage.
+- `diagrams-check` guards the three **C4-PlantUML** views (Context, Container, Deployment). Source is `docs/diagrams/*.puml`; the C4-PlantUML stdlib is vendored under `docs/diagrams/C4-PlantUML/` (rendered with `-DRELATIVE_INCLUDE=.`) so `make diagrams` needs no network — killing the `raw.githubusercontent.com` HTTP-429 render flake. Rendered PNGs are committed under `docs/diagrams/out/`; `diagrams-check` re-renders and fails on any drift (source edit OR a `plantuml/plantuml` renderer bump, via a version-stamped sentinel). `PLANTUML_VERSION` is pinned in the Makefile and Renovate-tracked; because a renderer bump requires re-rendering the PNGs (which Renovate cannot do), a `renovate.json` packageRule sets `automerge: false` for `plantuml/plantuml` — its bump PR is shepherded by hand (`make diagrams`, commit). `C4_PLANTUML_VERSION` (the vendored stdlib tag) is deliberately NOT Renovate-tracked; bump it manually with `make vendor-diagrams`.
 
 ## Key Details
 

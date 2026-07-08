@@ -213,7 +213,7 @@ diagrams-check: diagrams
 #vendor-diagrams: @ Re-download the pinned C4-PlantUML stdlib into docs/diagrams/C4-PlantUML/ (manual bump)
 vendor-diagrams:
 	@mkdir -p $(DIAGRAM_DIR)/C4-PlantUML
-	@for f in C4.puml C4_Context.puml C4_Container.puml; do \
+	@for f in C4.puml C4_Context.puml C4_Container.puml C4_Deployment.puml; do \
 		echo "fetching $$f @ $(C4_PLANTUML_VERSION)"; \
 		curl -fsSL "https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/$(C4_PLANTUML_VERSION)/$$f" \
 			-o "$(DIAGRAM_DIR)/C4-PlantUML/$$f"; \
