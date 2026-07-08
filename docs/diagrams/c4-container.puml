@@ -1,0 +1,45 @@
+@startuml c4-container
+' C4-PlantUML stdlib is VENDORED under ./C4-PlantUML/ (not fetched over the network) to
+' avoid the raw.githubusercontent.com HTTP-429 render flake. Render with `make diagrams`.
+!include C4-PlantUML/C4_Container.puml
+
+LAYOUT_LEFT_RIGHT()
+
+' Modern flat styling: no shadows, sharper corners, clean sans-serif, modern palette.
+skinparam backgroundColor #FAFAFA
+skinparam shadowing false
+skinparam roundCorner 4
+skinparam defaultFontName "Inter, Helvetica, Arial, sans-serif"
+skinparam defaultFontSize 13
+skinparam ArrowColor #37474F
+skinparam ArrowThickness 1.2
+skinparam rectangleBorderThickness 1.3
+
+UpdateElementStyle("person",    $fontColor="#FFFFFF", $bgColor="#0F766E", $borderColor="#134E4A")
+UpdateElementStyle("container",  $fontColor="#FFFFFF", $bgColor="#2563EB", $borderColor="#1E3A8A")
+' ContainerDb shares the plain `container` tag (no distinct DB tag in C4-PlantUML) — a
+' custom tag attached at the call site via $tags is the supported way to colour the DB.
+AddElementTag("datastore", $fontColor="#FFFFFF", $bgColor="#7C3AED", $borderColor="#4C1D95")
+
+title Container View — Dapr sidecar pattern
+
+Person(operator, "Operator")
+
+System_Boundary(sys, "Dapr Kafka PubSub") {
+  Container(producer, "Producer", ".NET 10 console, Dapr.Client 1.17.9", "Publishes SampleMessage every 10s")
+  Container(producer_dapr, "Dapr Sidecar", "daprd 1.17.6, injected at deploy-time", "Produces to Kafka via pubsub component")
+  Container(consumer, "Consumer", ".NET 10, ASP.NET Core, Dapr.AspNetCore 1.17.9", "Handles POST /sampletopic on :6000")
+  Container(consumer_dapr, "Dapr Sidecar", "daprd 1.17.6, injected at deploy-time", "Subscribes to Kafka, delivers CloudEvents")
+}
+
+ContainerDb(kafka, "Kafka", "Apache Kafka 4.x (KRaft)", "Topic: sampletopic", $tags="datastore")
+
+Rel(operator, producer, "dapr run / make dapr-run-producer")
+Rel(operator, consumer, "dapr run / make dapr-run-consumer")
+Rel(producer, producer_dapr, "PublishEventAsync", "HTTP/gRPC to :3500/:50001")
+Rel(producer_dapr, kafka, "Produce", "Kafka protocol")
+Rel(kafka, consumer_dapr, "Consume", "Kafka protocol")
+Rel(consumer_dapr, consumer, "POST /sampletopic", "HTTP + CloudEvents envelope")
+
+SHOW_LEGEND()
+@enduml

@@ -1,0 +1,34 @@
+@startuml c4-context
+' C4-PlantUML stdlib is VENDORED under ./C4-PlantUML/ (not fetched over the network) to
+' avoid the raw.githubusercontent.com HTTP-429 render flake. Render with
+' `make diagrams` (passes -DRELATIVE_INCLUDE=. so the vendored file's own includes
+' resolve locally). A bare `plantuml` without the flag falls back to the remote URL.
+!include C4-PlantUML/C4_Context.puml
+
+LAYOUT_LEFT_RIGHT()
+
+' Modern flat styling: no shadows, sharper corners, clean sans-serif, modern palette.
+skinparam backgroundColor #FAFAFA
+skinparam shadowing false
+skinparam roundCorner 4
+skinparam defaultFontName "Inter, Helvetica, Arial, sans-serif"
+skinparam defaultFontSize 13
+skinparam ArrowColor #37474F
+skinparam ArrowThickness 1.2
+skinparam rectangleBorderThickness 1.3
+
+UpdateElementStyle("person",          $fontColor="#FFFFFF", $bgColor="#0F766E", $borderColor="#134E4A")
+UpdateElementStyle("system",          $fontColor="#FFFFFF", $bgColor="#2563EB", $borderColor="#1E3A8A")
+UpdateElementStyle("external_system", $fontColor="#FFFFFF", $bgColor="#64748B", $borderColor="#475569")
+
+title System Context — Dapr Kafka PubSub Demo
+
+Person(operator, "Operator", "Developer or CI running the demo locally or on KinD")
+System(dkc, "Dapr Kafka PubSub", "Pub/sub demo decoupling .NET producer and consumer from Kafka via Dapr sidecars")
+System_Ext(kafka, "Apache Kafka", "Upstream Apache Kafka (KRaft) 4.2.0 — local Compose / K8s via Strimzi 1.0")
+
+Rel(operator, dkc, "Runs", "make dapr-run-* / kind-up")
+Rel(dkc, kafka, "Publishes / subscribes via Dapr sidecar", "Kafka protocol")
+
+SHOW_LEGEND()
+@enduml

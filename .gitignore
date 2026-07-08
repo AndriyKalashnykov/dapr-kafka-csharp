@@ -92,3 +92,5 @@ bld/
 # Claude Code session-local files
 .claude/scheduled_tasks.lock
 .claude/session-data/
+# Version-stamp sentinel that forces diagram re-render on a plantuml bump (not a tracked artifact)
+docs/diagrams/out/.plantuml-*.stamp

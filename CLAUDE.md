@@ -128,15 +128,20 @@ Run `/test-coverage-analysis` to find gaps and scaffold missing files.
 ```bash
 make lint           # dotnet format --verify-no-changes + warnings-as-errors + hadolint
 make format         # Auto-fix code formatting (dotnet format)
-make static-check   # Composite: lint + vulncheck + secrets + trivy-fs + trivy-config + mermaid-lint + deps-prune-check
+make static-check   # Composite: lint + vulncheck + secrets + trivy-fs + trivy-config + mermaid-lint + diagrams-check + deps-prune-check
 make vulncheck      # dotnet list package --vulnerable (CVE scan)
 make secrets        # gitleaks scan
 make trivy-fs       # Trivy filesystem scan (CRITICAL/HIGH)
 make trivy-config   # Trivy config scan on k8s/
 make mermaid-lint   # Parse every ```mermaid block via pinned minlag/mermaid-cli (same engine github.com uses)
+make diagrams       # Render C4-PlantUML Context/Container heroes to committed PNGs (pinned plantuml/plantuml, vendored stdlib)
+make diagrams-check # Drift gate: fail if a committed PNG differs from its .puml source or the pinned renderer
 ```
 
-`mermaid-lint` is wired into `static-check` because README embeds Mermaid C4 Context, Container, and Deployment diagrams — a broken block silently renders as a red "Unable to render rich display" box on the GitHub homepage. `MERMAID_CLI_VERSION` is pinned in the Makefile and Renovate-tracked.
+Two diagram gates are wired into `static-check`:
+
+- `mermaid-lint` (pinned `minlag/mermaid-cli`, `MERMAID_CLI_VERSION`, Renovate-tracked) parses the two inline **Mermaid flowcharts** the README embeds (Cluster Topology — KinD, Event Flow) — a broken block renders as a red "Unable to render rich display" box on the GitHub homepage.
+- `diagrams-check` guards the two **C4-PlantUML** heroes (Context, Container). Source is `docs/diagrams/*.puml`; the C4-PlantUML stdlib is vendored under `docs/diagrams/C4-PlantUML/` (rendered with `-DRELATIVE_INCLUDE=.`) so `make diagrams` needs no network — killing the `raw.githubusercontent.com` HTTP-429 render flake. Rendered PNGs are committed under `docs/diagrams/out/`; `diagrams-check` re-renders and fails on any drift (source edit OR a `plantuml/plantuml` renderer bump, via a version-stamped sentinel). `PLANTUML_VERSION` is pinned in the Makefile and Renovate-tracked; because a renderer bump requires re-rendering the PNGs (which Renovate cannot do), a `renovate.json` packageRule sets `automerge: false` for `plantuml/plantuml` — its bump PR is shepherded by hand (`make diagrams`, commit). `C4_PLANTUML_VERSION` (the vendored stdlib tag) is deliberately NOT Renovate-tracked; bump it manually with `make vendor-diagrams`.
 
 ## Key Details
 
@@ -151,7 +156,7 @@ make mermaid-lint   # Parse every ```mermaid block via pinned minlag/mermaid-cli
 - Each project has its own `nuget.config` pointing to NuGet v3 feed
 - Docker images: both producer and consumer use `dotnet/aspnet:10.0` base (Dapr.AspNetCore requires ASP.NET runtime)
 - `Directory.Build.props` enforces `TreatWarningsAsErrors` and `RestorePackagesWithLockFile` across all projects
-- Renovate covers 81 dependencies across 7 managers: `mise` (`.mise.toml` aqua backends + core tools), `nuget` (`*.csproj`), `dockerfile` (`FROM` digests), `docker-compose` (`image:`), `kubernetes` (`k8s/*.yaml` `image:` fields), `github-actions` (`uses:` refs), and four `custom.regex` managers — Makefile plain version constants, Makefile `repo:tag@sha256:` image refs, `.env` Kafka image, and inline `# renovate:` annotations above env-block constants in `.github/workflows/*.yml` (CST + ZAP versions). `.mise.toml` does NOT carry `# renovate:` comments — the native `mise` manager tracks every entry directly.
+- Renovate covers 82 dependencies across 7 managers: `mise` (`.mise.toml` aqua backends + core tools), `nuget` (`*.csproj`), `dockerfile` (`FROM` digests), `docker-compose` (`image:`), `kubernetes` (`k8s/*.yaml` `image:` fields), `github-actions` (`uses:` refs), and four `custom.regex` managers — Makefile plain version constants (including `PLANTUML_VERSION`), Makefile `repo:tag@sha256:` image refs, `.env` Kafka image, and inline `# renovate:` annotations above env-block constants in `.github/workflows/*.yml` (CST + ZAP versions). `.mise.toml` does NOT carry `# renovate:` comments — the native `mise` manager tracks every entry directly. `plantuml/plantuml` has `automerge: false` (a bump needs a manual `make diagrams` re-render); `C4_PLANTUML_VERSION` (vendored stdlib) is untracked — bump via `make vendor-diagrams`.
 
 ## CI
 

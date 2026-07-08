@@ -128,6 +128,13 @@
         "andriykalashnykov/consumer"
       ],
       "enabled": false
+    },
+    {
+      "description": "plantuml/plantuml renders the committed C4 diagram PNGs; a bump requires `make diagrams` to re-render (which Renovate cannot run) so diagrams-check would keep an automerged PR red forever. Disable automerge and give it its own PR so a human shepherds only this bump: run `make diagrams` on the bump branch and commit the re-rendered PNGs. See /architecture-diagrams option (c).",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["plantuml/plantuml"],
+      "groupName": "plantuml renderer (manual re-render)",
+      "automerge": false
     }
   ]
 }
