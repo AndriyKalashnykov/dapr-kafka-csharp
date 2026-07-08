@@ -1,0 +1,58 @@
+@startuml c4-deployment
+' C4-PlantUML stdlib is VENDORED under ./C4-PlantUML/ (not fetched over the network) to
+' avoid the raw.githubusercontent.com HTTP-429 render flake. Render with `make diagrams`.
+!include C4-PlantUML/C4_Deployment.puml
+
+LAYOUT_LEFT_RIGHT()
+
+' Modern flat styling: no shadows, sharper corners, clean sans-serif, modern palette.
+skinparam backgroundColor #FAFAFA
+skinparam shadowing false
+skinparam roundCorner 4
+skinparam defaultFontName "Inter, Helvetica, Arial, sans-serif"
+skinparam defaultFontSize 13
+skinparam ArrowColor #37474F
+skinparam ArrowThickness 1.2
+skinparam rectangleBorderThickness 1.3
+
+UpdateElementStyle("container", $fontColor="#FFFFFF", $bgColor="#2563EB", $borderColor="#1E3A8A")
+' Distinct tags attached at call sites: daprd sidecars (teal) and the Kafka datastore (violet).
+AddElementTag("sidecar",   $fontColor="#FFFFFF", $bgColor="#0F766E", $borderColor="#134E4A")
+AddElementTag("datastore", $fontColor="#FFFFFF", $bgColor="#7C3AED", $borderColor="#4C1D95")
+
+title Deployment — KinD (cloud-provider-kind LoadBalancer)
+
+Deployment_Node(host, "Host", "Docker") {
+  Container(cpk, "cloud-provider-kind", "host-side daemon", "Allocates LoadBalancer IPs on the kind Docker network")
+  Deployment_Node(cluster, "KinD cluster: dapr-kafka", "kindest/node v1.36.1") {
+    Deployment_Node(nsSystem, "Namespace: dapr-system", "Dapr control plane") {
+      Container(daprcp, "Dapr control plane", "operator / placement / sentry / sidecar-injector", "Injects daprd, issues mTLS identities")
+    }
+    Deployment_Node(nsKafka, "Namespace: kafka", "Strimzi operator") {
+      ContainerDb(kafka, "Kafka", "Strimzi 1.0 / Apache Kafka 4.2 (KRaft, 1 broker)", "Topic: sampletopic", $tags="datastore")
+    }
+    Deployment_Node(nsApp, "Namespace: dapr-app", "workloads") {
+      Deployment_Node(podP, "Pod: producer", "") {
+        Container(producer, "Producer", ".NET 10 console", "Publishes SampleMessage every 10s")
+        Container(pDapr, "daprd", "Dapr 1.17.6 sidecar", "Injected at deploy-time", $tags="sidecar")
+      }
+      Deployment_Node(podC, "Pod: consumer", "") {
+        Container(consumer, "Consumer", ".NET 10 ASP.NET Core :6000", "Handles POST /sampletopic")
+        Container(cDapr, "daprd", "Dapr 1.17.6 sidecar", "Injected at deploy-time", $tags="sidecar")
+      }
+      Container(svc, "Service: consumer", "LoadBalancer :80 -> :6000", "External access for e2e curl")
+    }
+  }
+}
+
+Rel(cpk, svc, "Allocates external IP", "kind network")
+Rel(daprcp, pDapr, "Injects + mTLS", "webhook")
+Rel(daprcp, cDapr, "Injects + mTLS", "webhook")
+Rel(producer, pDapr, "PublishEventAsync", "localhost")
+Rel(pDapr, kafka, "Produce sampletopic", "Kafka")
+Rel(kafka, cDapr, "Consume sampletopic", "Kafka")
+Rel(cDapr, consumer, "POST /sampletopic", "CloudEvents")
+Rel(svc, consumer, "Routes :80 -> :6000", "")
+
+SHOW_LEGEND()
+@enduml

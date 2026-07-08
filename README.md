@@ -72,19 +72,7 @@ make deps      # runs `mise install` (no sudo; installs to $HOME/.local/share/mi
 
 ### Cluster Topology — KinD
 
-```mermaid
-flowchart TB
-    subgraph host["Host (Docker)"]
-        cpk["cloud-provider-kind<br/>(LoadBalancer daemon)"]
-        subgraph cluster["KinD cluster: dapr-kafka<br/>(kindest/node:v1.36.1)"]
-            ns_dapr["Namespace: dapr-system<br/>Dapr control plane<br/>(operator · placement · sentry · sidecar-injector)"]
-            ns_kafka["Namespace: kafka<br/>Strimzi 1.0 operator + Kafka CR<br/>(upstream apache/kafka 4.2, KRaft)"]
-            ns_app["Namespace: dapr-app<br/>producer + consumer pods<br/>(see Event Flow below)"]
-        end
-    end
-    cpk -.->|allocates IP on kind network| ns_app
-    ns_dapr -.->|webhook injects daprd| ns_app
-```
+<p align="center"><img src="docs/diagrams/out/c4-deployment.png" alt="Deployment View — a KinD cluster (kindest/node v1.36.1) with the Dapr control plane in dapr-system, Strimzi-managed Kafka in kafka, and producer/consumer pods (each with a daprd sidecar) plus a LoadBalancer Service in dapr-app; host-side cloud-provider-kind allocates the LoadBalancer IP" width="900"></p>
 
 ### Event Flow — `dapr-app` namespace
 
@@ -130,7 +118,7 @@ tests/              TUnit test projects (unit + integration)
 e2e/                KinD + Docker Compose end-to-end shell scripts
 ```
 
-The C4 **Context** and **Container** heroes are C4-PlantUML — source in [`docs/diagrams/*.puml`](docs/diagrams), rendered to committed PNGs by `make diagrams` (pinned `plantuml/plantuml` Docker image; the C4-PlantUML stdlib is vendored under `docs/diagrams/C4-PlantUML/` so renders need no network). `make diagrams-check` fails the build if a committed PNG drifts from its source or the pinned renderer. The **Cluster Topology** and **Event Flow** views above are inline Mermaid, parsed by `make mermaid-lint` (pinned `minlag/mermaid-cli`). Both gates run on every push as part of `make static-check`.
+The C4 **Context**, **Container**, and **Deployment** views are C4-PlantUML — source in [`docs/diagrams/*.puml`](docs/diagrams), rendered to committed PNGs by `make diagrams` (pinned `plantuml/plantuml` Docker image; the C4-PlantUML stdlib is vendored under `docs/diagrams/C4-PlantUML/` so renders need no network). `make diagrams-check` fails the build if a committed PNG drifts from its source or the pinned renderer. The **Event Flow** view above is inline Mermaid (a runtime message flow, not a C4 structural view), parsed by `make mermaid-lint` (pinned `minlag/mermaid-cli`). Both gates run on every push as part of `make static-check`.
 
 ## Build & Package
 
