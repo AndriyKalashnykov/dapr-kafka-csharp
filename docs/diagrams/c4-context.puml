@@ -32,3 +32,5 @@ Rel(dkc, kafka, "Publishes / subscribes via Dapr sidecar", "Kafka protocol")
 
 SHOW_LEGEND()
 @enduml
+
+' probe: verify docs-filter skips heavy jobs (throwaway)
