@@ -60,13 +60,13 @@ jobs:
           # Setting it only on push events avoids the PR-event annotation warning.
           base: ${{ github.event_name == 'push' && 'main' || '' }}
           filters: |
+            # Single-line extglob negation (NOT a multi-line negation list): under
+            # dorny/paths-filter's default `some` quantifier, a multi-line list of
+            # negations is ALWAYS true (a .md file still matches `!LICENSE`), so
+            # doc-only changes never skip. The extglob is one pattern that excludes
+            # all doc paths at once; `CLAUDE.md` is re-included (it's project config).
             code:
-              - '!**.md'
-              - '!LICENSE'
-              - '!.gitignore'
-              - '!.claudeignore'
-              - '!.claude/**'
-              - '!docs/**'
+              - '!(**.md|LICENSE|.gitignore|.claudeignore|.claude/**|docs/**)'
               - 'CLAUDE.md'
             # Markdown (README Mermaid flowcharts) + diagram sources/renders. Gates
             # static-check only, so mermaid-lint + diagrams-check run on doc-only changes.
@@ -78,7 +78,7 @@ jobs:
     needs: [changes]
     # Also run on docs-only changes so mermaid-lint + diagrams-check validate the
     # README Mermaid flowcharts and the C4-PlantUML diagrams. Heavy jobs stay on `code`.
-    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.docs == 'true'
+    if: ${{ !failure() && !cancelled() && (needs.changes.outputs.code == 'true' || needs.changes.outputs.docs == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -92,12 +92,20 @@ jobs:
           cache: true
           cache-dependency-path: '**/packages.lock.json'
 
+      # `make static-check` runs trivy / gitleaks / hadolint (mise-installed) and
+      # docker-based mermaid-lint + diagrams-check. setup-dotnet stays because mise's
+      # dotnet provider is symlink-only (it points at the host SDK, not a mise install).
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+        with:
+          install: true
+          cache: true
+
       - name: Static check
-        run: make lint
+        run: make static-check
 
   build:
     needs: [changes, static-check]
-    if: needs.changes.outputs.code == 'true'
+    if: ${{ !failure() && !cancelled() && needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -116,7 +124,7 @@ jobs:
 
   test:
     needs: [changes, static-check]
-    if: needs.changes.outputs.code == 'true'
+    if: ${{ !failure() && !cancelled() && needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -148,7 +156,7 @@ jobs:
 
   integration-test:
     needs: [changes, static-check]
-    if: needs.changes.outputs.code == 'true'
+    if: ${{ !failure() && !cancelled() && needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -178,7 +186,7 @@ jobs:
 
   e2e:
     needs: [changes, build, test]
-    if: needs.changes.outputs.code == 'true'
+    if: ${{ !failure() && !cancelled() && needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -195,7 +203,7 @@ jobs:
           wget -q https://raw.githubusercontent.com/dapr/cli/master/install/install.sh -O - | /bin/bash -s 1.17.1
           dapr --version
 
-      - name: Initialize Dapr (standalone mode)
+      - name: Initialize Dapr standalone mode
         # Idempotent: tolerates a pre-existing Dapr install when the workflow runs
         # under `act` with the host's Docker socket (host may already have
         # `dapr_placement` running from prior `dapr init`). No-op on fresh
@@ -220,7 +228,7 @@ jobs:
   # an act-side skip because `env` is not available in job-level `if:`.
   e2e-kind:
     needs: [changes, build, test]
-    if: needs.changes.outputs.code == 'true'
+    if: ${{ !failure() && !cancelled() && needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -249,10 +257,10 @@ jobs:
       - name: Install Dapr control plane
         run: make k8s-dapr-deploy
 
-      - name: Install Strimzi operator + Kafka cluster
+      - name: Install Strimzi operator and Kafka cluster
         run: make k8s-kafka-deploy
 
-      - name: Deploy producer + consumer
+      - name: Deploy producer and consumer
         run: make k8s-workload-deploy
 
       - name: Verify pub/sub round-trip
@@ -275,7 +283,9 @@ jobs:
           kubectl --context=kind-dapr-kafka get kafka,kafkanodepool,kafkatopic -n kafka -o wide || true
 
   docker:
-    if: startsWith(github.ref, 'refs/tags/')
+    # !failure() && !cancelled() so a failing build/test/integration-test on a tag
+    # blocks publish + cosign-sign (an explicit if: strips the implicit success() gate).
+    if: ${{ !failure() && !cancelled() && startsWith(github.ref, 'refs/tags/') }}
     needs: [build, test, integration-test]
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -310,7 +320,7 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
 
-      - name: Set up Buildx
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
 
       - name: Docker metadata
@@ -398,7 +408,7 @@ jobs:
       # because the consumer rejects every non-CloudEvents request, which
       # generates noise in the report without indicating a real vulnerability;
       # use the uploaded artifact to triage findings rather than failing CI.
-      - name: DAST — OWASP ZAP baseline (consumer)
+      - name: OWASP ZAP baseline scan
         if: matrix.app == 'consumer' && !env.ACT
         continue-on-error: true
         run: |

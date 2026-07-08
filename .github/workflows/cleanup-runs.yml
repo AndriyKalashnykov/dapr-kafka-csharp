@@ -12,7 +12,8 @@ concurrency:
 
 permissions:
   actions: write
-  contents: read   # required by `gh api .../actions/caches` on private repos
+  contents: read        # required by `gh api .../actions/caches` on private repos
+  pull-requests: read   # required by `gh pr list` (retain open-PR runs, below)
 
 jobs:
   cleanup-runs:
@@ -26,9 +27,26 @@ jobs:
       - name: Delete old workflow runs
         run: |
           CUTOFF=$(date -u -d "$RETAIN_DAYS days ago" +%Y-%m-%dT%H:%M:%SZ)
+          # Head SHAs of OPEN PRs — their run carries the required status check;
+          # deleting it strands the PR on a MISSING check (BLOCKED, 0 checks). Retain
+          # regardless of age.
+          OPEN_SHAS=$(gh pr list --repo "${{ github.repository }}" --state open \
+            --json headRefOid --jq '[.[].headRefOid]')
+          # Retain the newest KEEP_MINIMUM runs PER WORKFLOW (group_by .workflowName),
+          # THEN delete any remaining run older than CUTOFF whose head SHA is not an
+          # open PR. A single GLOBAL minimum would deregister low-frequency workflows
+          # (deleting the last CI run flips ci.yml to state:deleted, dropping ci-pass).
           gh run list --repo "${{ github.repository }}" \
-            --json databaseId,createdAt --limit 200 \
-            --jq "sort_by(.createdAt) | reverse | .[$KEEP_MINIMUM:] | .[] | select(.createdAt < \"$CUTOFF\") | .databaseId" \
+            --json databaseId,createdAt,workflowName,headSha --limit 300 \
+          | jq -r --arg cutoff "$CUTOFF" --argjson keep "$KEEP_MINIMUM" --argjson open "$OPEN_SHAS" '
+              group_by(.workflowName)
+              | map(sort_by(.createdAt) | reverse | .[$keep:])
+              | add // []
+              | .[]
+              | select(.createdAt < $cutoff)
+              | select(.headSha as $s | ($open | index($s)) | not)
+              | .databaseId
+            ' \
           | xargs -r -I{} gh run delete {} --repo "${{ github.repository }}"
 
   cleanup-caches:

@@ -14,50 +14,47 @@ using TUnit.Core;
 // layer's responsibility (see e2e/e2e-compose-test.sh + e2e/e2e-test.sh).
 public sealed class ProducerPublishTests
 {
-    // Contract under test: a single publish iteration of the producer must call
-    // DaprClient.PublishEventAsync with pubsub name "sampletopic", topic name
-    // "sampletopic", and a non-null SampleMessage payload.
+    // Contract under test: one iteration of the REAL producer loop
+    // (Program.StartMessageGeneratorAsync) must call DaprClient.PublishEventAsync
+    // with pubsub name "sampletopic", topic name "sampletopic", and a non-null
+    // SampleMessage that the production code generated. Driving the real loop (not
+    // calling the fake directly) is what makes this a contract test rather than a
+    // tautology that asserts the mock recorded its own invocation.
 
     [Test]
-    public async Task PublishEventAsync_IsCalledWithExpectedPubsubTopicAndMessage()
+    public async Task StartMessageGenerator_PublishesToSampletopicWithGeneratedMessage()
     {
         var fakeClient = A.Fake<DaprClient>();
+        using var cts = new CancellationTokenSource();
 
-        var message = new SampleMessage
-        {
-            CorrelationId = Guid.NewGuid(),
-            MessageId = Guid.NewGuid(),
-            Message = "itest #square",
-            CreationDate = DateTime.UtcNow,
-            Sentiment = "neutral",
-            PreviousAppTimestamp = DateTime.UtcNow,
-        };
-
-        await fakeClient.PublishEventAsync("sampletopic", "sampletopic", message, CancellationToken.None);
+        await Producer.Program.StartMessageGeneratorAsync(
+            fakeClient, cts.Token, maxIterations: 1, delayBetweenIterations: TimeSpan.Zero);
 
         A.CallTo(() => fakeClient.PublishEventAsync(
                 "sampletopic",
                 "sampletopic",
-                A<SampleMessage>.That.Matches(m => m.MessageId == message.MessageId),
+                A<SampleMessage>.That.Matches(m =>
+                    m != null && m.MessageId != Guid.Empty && !string.IsNullOrEmpty(m.Message)),
                 A<CancellationToken>.Ignored))
             .MustHaveHappenedOnceExactly();
     }
 
     [Test]
-    public async Task PublishEventAsync_PropagatesCancellationToken()
+    public async Task StartMessageGenerator_PropagatesCancellationTokenToPublish()
     {
         var fakeClient = A.Fake<DaprClient>();
         using var cts = new CancellationTokenSource();
-        var message = new SampleMessage { MessageId = Guid.NewGuid(), Message = "x", Sentiment = "n/a" };
 
-        await fakeClient.PublishEventAsync("sampletopic", "sampletopic", message, cts.Token);
+        await Producer.Program.StartMessageGeneratorAsync(
+            fakeClient, cts.Token, maxIterations: 1, delayBetweenIterations: TimeSpan.Zero);
 
+        // The exact token handed to the loop must flow through to the publish call.
         A.CallTo(() => fakeClient.PublishEventAsync(
                 A<string>.Ignored,
                 A<string>.Ignored,
                 A<SampleMessage>.Ignored,
                 cts.Token))
-            .MustHaveHappened();
+            .MustHaveHappenedOnceExactly();
     }
 
     // Resilience contract: a transient publish failure must not terminate the

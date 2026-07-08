@@ -32,7 +32,7 @@ System_Boundary(sys, "Dapr Kafka PubSub") {
   Container(consumer_dapr, "Dapr Sidecar", "daprd 1.17.6, injected at deploy-time", "Subscribes to Kafka, delivers CloudEvents")
 }
 
-ContainerDb(kafka, "Kafka", "Apache Kafka 4.x (KRaft)", "Topic: sampletopic", $tags="datastore")
+ContainerDb(kafka, "Kafka", "Apache Kafka 4.2 (KRaft)", "Topic: sampletopic", $tags="datastore")
 
 Rel(operator, producer, "dapr run / make dapr-run-producer")
 Rel(operator, consumer, "dapr run / make dapr-run-consumer")

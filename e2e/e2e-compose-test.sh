@@ -9,6 +9,18 @@ set -euo pipefail
 WORKDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${WORKDIR}"
 
+# Load committed defaults from .env.example (source of truth), then optional .env.
+# shellcheck source=/dev/null
+# `set -a` exports so ${VAR:-default} below picks up any override. Ephemeral ports
+# are not used here (fixed compose/app ports), so sourcing is safe.
+if [ -f .env.example ]; then set -a; . ./.env.example; set +a; fi
+if [ -f .env         ]; then set -a; . ./.env;         set +a; fi
+# Externalized e2e timing knobs (defaults mirror .env.example).
+CONSUMER_START_WAIT_SECONDS="${CONSUMER_START_WAIT_SECONDS:-10}"
+MSG_WAIT_SECONDS="${MSG_WAIT_SECONDS:-60}"
+POLL_INTERVAL_SECONDS="${POLL_INTERVAL_SECONDS:-3}"
+CURL_MAX_TIME_SECONDS="${CURL_MAX_TIME_SECONDS:-5}"
+
 PASS=0
 FAIL=0
 LOG_CONSUMER="/tmp/consumer.log"
@@ -63,7 +75,7 @@ section "Start consumer with Dapr sidecar"
     > "${LOG_CONSUMER}" 2>&1 &
 PIDS+=($!)
 # Give consumer + sidecar time to register subscription.
-sleep 10
+sleep "${CONSUMER_START_WAIT_SECONDS}"
 
 section "Start producer with Dapr sidecar"
 (cd producer && dapr run --app-id producer --resources-path ../components --log-level warn -- dotnet run --no-build) \
@@ -71,14 +83,14 @@ section "Start producer with Dapr sidecar"
 PIDS+=($!)
 
 section "Wait for message flow (up to 60s)"
-deadline=$(( $(date +%s) + 60 ))
+deadline=$(( $(date +%s) + MSG_WAIT_SECONDS ))
 delivered=false
 while [ "$(date +%s)" -lt "${deadline}" ]; do
     if grep -q "Message is delivered" "${LOG_CONSUMER}" 2>/dev/null; then
         delivered=true
         break
     fi
-    sleep 3
+    sleep "${POLL_INTERVAL_SECONDS}"
 done
 
 if [ "${delivered}" = "true" ]; then
@@ -107,7 +119,7 @@ section "Negative case — consumer rejects malformed POST to /sampletopic (mirr
 # directly. We curl that endpoint to verify the same status/Content-Type/ProblemDetails
 # contract that the KinD e2e checks via the LoadBalancer.
 headers="$(mktemp)"; body="$(mktemp)"
-status="$(curl -s -o "${body}" -D "${headers}" -w '%{http_code}' --max-time 5 \
+status="$(curl -s -o "${body}" -D "${headers}" -w '%{http_code}' --max-time "${CURL_MAX_TIME_SECONDS}" \
     -X POST "http://localhost:6000/sampletopic" \
     -H 'Content-Type: application/json' -d 'not-json' || echo "000")"
 

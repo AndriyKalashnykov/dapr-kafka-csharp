@@ -94,3 +94,7 @@ bld/
 .claude/session-data/
 # Version-stamp sentinel that forces diagram re-render on a plantuml bump (not a tracked artifact)
 docs/diagrams/out/.plantuml-*.stamp
+
+# Local env override (source of truth is committed .env.example)
+.env
+!.env.example
