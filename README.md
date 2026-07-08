@@ -308,7 +308,7 @@ GitHub Actions runs on push to `main`, tag pushes (`v*`), and pull requests. The
 
 | Job | Triggers | Steps |
 |-----|----------|-------|
-| **changes** | push, PR, tags | `dorny/paths-filter` detector — sets `outputs.code` so doc-only changes skip heavy jobs without deadlocking the Rulesets gate. Force-true on `refs/tags/*` |
+| **changes** | push, PR, tags | `dorny/paths-filter` detector — `outputs.code` skips heavy jobs on doc-only changes (no Rulesets deadlock); `outputs.docs` gates `static-check` only so `mermaid-lint` + `diagrams-check` still run on Markdown/`docs/` edits. Force-true on `refs/tags/*` |
 | **static-check** | code change | Format check, warnings-as-errors, hadolint |
 | **build** | after static-check | Build the solution |
 | **test** | after static-check | Run unit tests, upload results artifact |
