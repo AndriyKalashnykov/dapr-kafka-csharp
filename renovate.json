@@ -27,7 +27,9 @@
     "custom.regex"
   ],
   "kubernetes": {
-    "managerFilePatterns": ["/^k8s/.+\\.yaml$/"]
+    "managerFilePatterns": [
+      "/^k8s/.+\\.yaml$/"
+    ]
   },
   "vulnerabilityAlerts": {
     "labels": [
@@ -39,8 +41,10 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "Update Makefile plain version constants via inline renovate comments (covers :=, ?=, =). The value pattern `v?\\d[\\w.+-]*` requires a digit (or `v` + digit) start, which excludes docker-image refs like `kindest/node:tag@digest` (start with `k`) — those fall through to the next regex that understands the `repo:tag@digest` shape. RE2 forbids lookahead, so this strict character class is the path to one-regex-per-constant matching.",
-      "managerFilePatterns": ["/^Makefile$/"],
+      "description": "Update Makefile plain version constants via inline renovate comments (covers :=, ?=, =). The value pattern `v?\\d[\\w.+-]*` requires a digit (or `v` + digit) start, which excludes docker-image refs like `kindest/node:tag@digest` (start with `k`) \u2014 those fall through to the next regex that understands the `repo:tag@digest` shape. RE2 forbids lookahead, so this strict character class is the path to one-regex-per-constant matching.",
+      "managerFilePatterns": [
+        "/^Makefile$/"
+      ],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)( versioning=(?<versioning>\\S+))?( registryUrl=(?<registryUrl>\\S+))?\\n[A-Z_]+\\s*[?:]?=\\s*(?<currentValue>v?\\d[\\w.+-]*)"
       ]
@@ -48,15 +52,19 @@
     {
       "customType": "regex",
       "description": "Update Makefile Docker image ref constants with optional digest (repo:tag@sha256:...)",
-      "managerFilePatterns": ["/^Makefile$/"],
+      "managerFilePatterns": [
+        "/^Makefile$/"
+      ],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)( versioning=(?<versioning>\\S+))?\\n[A-Z_]+\\s*[?:]?=\\s*\\S+?:(?<currentValue>[^@\\s]+)(@(?<currentDigest>sha256:[a-f0-9]+))?"
       ]
     },
     {
       "customType": "regex",
-      "description": "Update .env Docker image pins with optional digest (KEY=<repo>:<tag>@sha256:...)",
-      "managerFilePatterns": ["/^\\.env$/"],
+      "description": "Update .env.example Docker image pins with optional digest (KEY=<repo>:<tag>@sha256:...)",
+      "managerFilePatterns": [
+        "/^\\.env\\.example$/"
+      ],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)( versioning=(?<versioning>\\S+))?\\n[A-Z_]+=\\S+?:(?<currentValue>[^@\\s]+)(@(?<currentDigest>sha256:[a-f0-9]+))?"
       ]
@@ -64,7 +72,9 @@
     {
       "customType": "regex",
       "description": "Update GitHub workflow inline tool versions via `# renovate:` comments above env-block entries",
-      "managerFilePatterns": ["/^\\.github/workflows/.+\\.ya?ml$/"],
+      "managerFilePatterns": [
+        "/^\\.github/workflows/.+\\.ya?ml$/"
+      ],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)( versioning=(?<versioning>\\S+))?( registryUrl=(?<registryUrl>\\S+))?\\n\\s+[A-Z_]+:\\s*[\"']?(?<currentValue>[^\"'\\s]+)"
       ]
@@ -107,12 +117,16 @@
     {
       "description": "Group Dapr SDK dependencies",
       "groupName": "Dapr SDK",
-      "matchPackageNames": ["Dapr.*"]
+      "matchPackageNames": [
+        "Dapr.*"
+      ]
     },
     {
-      "description": "Group TUnit test framework bumps — the 4 test projects (.UnitTests + .IntegrationTests for models/producer/consumer) each carry the same TUnit pin; without grouping each release produces 4 near-identical PRs",
+      "description": "Group TUnit test framework bumps \u2014 the 4 test projects (.UnitTests + .IntegrationTests for models/producer/consumer) each carry the same TUnit pin; without grouping each release produces 4 near-identical PRs",
       "groupName": "TUnit",
-      "matchPackageNames": ["/^TUnit/"]
+      "matchPackageNames": [
+        "/^TUnit/"
+      ]
     },
     {
       "description": "Group Makefile and .mise.toml tool versions into a single PR",
@@ -131,8 +145,12 @@
     },
     {
       "description": "plantuml/plantuml renders the committed C4 diagram PNGs; a bump requires `make diagrams` to re-render (which Renovate cannot run) so diagrams-check would keep an automerged PR red forever. Disable automerge and give it its own PR so a human shepherds only this bump: run `make diagrams` on the bump branch and commit the re-rendered PNGs. See /architecture-diagrams option (c).",
-      "matchDatasources": ["docker"],
-      "matchPackageNames": ["plantuml/plantuml"],
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "plantuml/plantuml"
+      ],
       "groupName": "plantuml renderer (manual re-render)",
       "automerge": false
     }

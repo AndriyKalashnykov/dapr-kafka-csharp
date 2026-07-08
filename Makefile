@@ -9,6 +9,10 @@ CURRENTTAG     := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "de
 # older manually-installed binaries in ~/.local/bin.
 export PATH := $(HOME)/.local/share/mise/shims:$(HOME)/.local/bin:$(PATH)
 
+# Load operator overrides from .env (gitignored) so `.env` is authoritative for `make`
+# too, not just compose. `-include` skips a missing .env. Source of truth: .env.example.
+-include .env
+
 # === Project Paths ===
 SOLUTION       := dapr-kafka-csharp.slnx
 PRODUCER_IMG   ?= andriykalashnykov/producer:$(CURRENTTAG)
@@ -55,6 +59,9 @@ STRIMZI_OPERATOR_VERSION := 1.0.0
 # docker-compose.yaml reads it directly. Renovate tracks it via the .env custom manager.
 # No KAFKA_IMAGE_VERSION Makefile constant — adding one creates duplicate tracking + drift risk.
 
+# Single-broker compose host port (overridable via .env / environment).
+KAFKA_HOST_PORT ?= 9092
+
 export DAPR_CHART_VERSION STRIMZI_OPERATOR_VERSION
 export KIND_CLUSTER_NAME
 
@@ -94,6 +101,33 @@ deps-k8s: deps
 	@command -v helm >/dev/null 2>&1 || { echo "Error: Helm required (installed via mise)"; exit 1; }
 	@command -v dapr >/dev/null 2>&1 || { echo "Error: Dapr CLI required (installed via mise)"; exit 1; }
 
+#check-env: @ STOPPER gate — fail if the committed .env.example source-of-truth is missing
+check-env:
+	@test -f .env.example || { \
+		echo "ERROR: .env.example is missing (BLOCKING per rules/common/configuration.md)."; \
+		echo "       It is the committed source of truth for every operator-tunable value."; \
+		exit 1; }
+
+#check-dotnet-alignment: @ Fail if global.json and .mise.toml pin different .NET SDK versions
+check-dotnet-alignment:
+	@gj=$$(grep -oE '"version"[[:space:]]*:[[:space:]]*"[0-9][0-9.]*"' global.json | grep -oE '[0-9][0-9.]+' | head -1); \
+	mt=$$(grep -oE '^dotnet[[:space:]]*=[[:space:]]*"[0-9][0-9.]*"' .mise.toml | grep -oE '[0-9][0-9.]+' | head -1); \
+	if [ "$$gj" != "$$mt" ]; then \
+		echo "ERROR: .NET SDK pin mismatch — global.json=$$gj .mise.toml=$$mt. Keep them aligned."; exit 1; \
+	fi; echo "dotnet-alignment: global.json == .mise.toml ($$gj)"
+
+#check-ports: @ Preflight — fail early if a required host port is already in use (override CHECK_PORTS)
+check-ports:
+	@set -e; ports="$${CHECK_PORTS:-$(KAFKA_HOST_PORT)}"; \
+	for p in $$ports; do \
+		if (exec 3<>/dev/tcp/127.0.0.1/$$p) 2>/dev/null; then \
+			exec 3>&- 3<&- || true; \
+			holder=$$(docker ps --filter "publish=$$p" --format '{{.Names}}' 2>/dev/null | head -1); \
+			echo "ERROR: host port $$p already in use$${holder:+ (container $$holder)}. Free it or override the *_PORT / CHECK_PORTS."; \
+			exit 1; \
+		fi; \
+	done; echo "check-ports: [$$ports] free"
+
 #clean: @ Remove build artifacts
 clean:
 	@dotnet clean "$(SOLUTION)" -v q --nologo
@@ -123,7 +157,8 @@ e2e: k8s-deploy
 	fi
 
 #e2e-compose: @ Run end-to-end tests via Docker Compose (lighter alternative to k8s e2e)
-e2e-compose:
+e2e-compose: CHECK_PORTS := $(KAFKA_HOST_PORT) 6000
+e2e-compose: check-ports
 	@docker compose -f docker-compose-kafka.yaml up -d --wait
 	@if [ -x e2e/e2e-compose-test.sh ]; then \
 		./e2e/e2e-compose-test.sh; RC=$$?; docker compose -f docker-compose-kafka.yaml down; exit $$RC; \
@@ -236,8 +271,8 @@ lint: deps
 		docker run --rm -v "$(CURDIR):/workspace" -w /workspace hadolint/hadolint hadolint producer/Dockerfile; \
 	fi
 
-#static-check: @ Composite quality gate (lint + vulncheck + secrets + trivy-fs + trivy-config + mermaid-lint + deps-prune-check)
-static-check: lint vulncheck secrets trivy-fs trivy-config mermaid-lint diagrams-check deps-prune-check
+#static-check: @ Composite quality gate (lint + vulncheck + secrets + trivy-fs + trivy-config + mermaid-lint + diagrams-check + deps-prune-check)
+static-check: check-env check-dotnet-alignment lint vulncheck secrets trivy-fs trivy-config mermaid-lint diagrams-check deps-prune-check
 
 #format: @ Auto-fix code formatting
 format: deps
@@ -308,7 +343,9 @@ _smoke-one:
 	[ $$passed -eq 1 ] || { echo "FAIL: $(APP) did not hit boot marker within 30s"; exit 1; }
 
 #local-kafka-run: @ Run a local 3-node plaintext KRaft Kafka cluster (advanced; requires Dapr component change)
-local-kafka-run: local-kafka-stop
+local-kafka-run: CHECK_PORTS := 9094 9095 9096
+local-kafka-run: local-kafka-stop check-ports
+	@[ -f .env ] || cp .env.example .env
 	@docker compose -f "docker-compose.yaml" up -d --wait
 
 #local-kafka-stop: @ Stop the local Kafka cluster
@@ -320,7 +357,8 @@ dapr-run-producer: build
 	@cd producer && dapr run --app-id producer --resources-path ../components -- dotnet run
 
 #dapr-run-consumer: @ Run consumer with Dapr sidecar (app-port 6000, shared components/ dir)
-dapr-run-consumer: build
+dapr-run-consumer: CHECK_PORTS := 6000
+dapr-run-consumer: check-ports build
 	@cd consumer && dapr run --app-id consumer --app-port 6000 --resources-path ../components -- dotnet run
 
 #update: @ Show outdated NuGet packages
@@ -472,6 +510,7 @@ renovate-validate: deps
 	fi
 
 .PHONY: help deps-mise deps deps-k8s clean build \
+	check-env check-ports check-dotnet-alignment \
 	test integration-test e2e e2e-compose \
 	vulncheck secrets trivy-fs trivy-config mermaid-lint deps-prune-check \
 	diagrams diagrams-clean diagrams-check vendor-diagrams \

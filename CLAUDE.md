@@ -59,7 +59,6 @@ All Kafka paths run upstream Apache Kafka in KRaft mode (no Zookeeper). Bitnami 
 ```
 producer/           Console app (Exe) - publishes SampleMessage every 10s
   Program.cs        DaprClient → PublishEventAsync("sampletopic", "sampletopic", ...)
-  deploy/           Dapr component YAML for local standalone mode
 
 consumer/           ASP.NET Core Web app - listens on port 6000
   Program.cs        Host builder, binds to http://*:6000
@@ -156,14 +155,14 @@ Two diagram gates are wired into `static-check`:
 - Each project has its own `nuget.config` pointing to NuGet v3 feed
 - Docker images: both producer and consumer use `dotnet/aspnet:10.0` base (Dapr.AspNetCore requires ASP.NET runtime)
 - `Directory.Build.props` enforces `TreatWarningsAsErrors` and `RestorePackagesWithLockFile` across all projects
-- Renovate covers 82 dependencies across 7 managers: `mise` (`.mise.toml` aqua backends + core tools), `nuget` (`*.csproj`), `dockerfile` (`FROM` digests), `docker-compose` (`image:`), `kubernetes` (`k8s/*.yaml` `image:` fields), `github-actions` (`uses:` refs), and four `custom.regex` managers — Makefile plain version constants (including `PLANTUML_VERSION`), Makefile `repo:tag@sha256:` image refs, `.env` Kafka image, and inline `# renovate:` annotations above env-block constants in `.github/workflows/*.yml` (CST + ZAP versions). `.mise.toml` does NOT carry `# renovate:` comments — the native `mise` manager tracks every entry directly. `plantuml/plantuml` has `automerge: false` (a bump needs a manual `make diagrams` re-render); `C4_PLANTUML_VERSION` (vendored stdlib) is untracked — bump via `make vendor-diagrams`.
+- Renovate covers 80+ dependencies across 7 managers: `mise` (`.mise.toml` aqua backends + core tools), `nuget` (`*.csproj`), `dockerfile` (`FROM` digests), `docker-compose` (`image:`), `kubernetes` (`k8s/*.yaml` `image:` fields), `github-actions` (`uses:` refs), and four `custom.regex` managers — Makefile plain version constants (including `PLANTUML_VERSION`), Makefile `repo:tag@sha256:` image refs, `.env.example` Kafka image, and inline `# renovate:` annotations above env-block constants in `.github/workflows/*.yml` (CST + ZAP versions). `.mise.toml` does NOT carry `# renovate:` comments — the native `mise` manager tracks every entry directly. `plantuml/plantuml` has `automerge: false` (a bump needs a manual `make diagrams` re-render); `C4_PLANTUML_VERSION` (vendored stdlib) is untracked — bump via `make vendor-diagrams`.
 
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yml`) runs on push to `main`, tag pushes (`v*`), and pull requests:
 
-- `changes` (`dorny/paths-filter` detector) gates the heavy jobs — doc-only pushes skip downstream without deadlocking the Rulesets `ci-pass` requirement. Force-true on `refs/tags/*` so publish runs always go through the full pipeline. A second `docs` output (`**.md` + `docs/**`) gates **only** `static-check` so a doc-only change (README Mermaid flowcharts, `docs/diagrams/*.puml`) still runs `mermaid-lint` + `diagrams-check` while `build`/`test`/`e2e`/`e2e-kind` skip
-- `static-check` → gates everything downstream (format + warnings-as-errors + hadolint)
+- `changes` (`dorny/paths-filter` detector) gates the heavy jobs — doc-only pushes skip downstream without deadlocking the Rulesets `ci-pass` requirement. Force-true on `refs/tags/*` so publish runs always go through the full pipeline. A second `docs` output (`**.md` + `docs/**`) gates **only** `static-check` so a doc-only change (the README Mermaid Event Flow diagram, `docs/diagrams/*.puml`) still runs `mermaid-lint` + `diagrams-check` while `build`/`test`/`e2e`/`e2e-kind` skip
+- `static-check` → runs the full `make static-check` composite gate (format + warnings-as-errors + hadolint + vulncheck + gitleaks + trivy-fs/config + mermaid-lint + diagrams-check + deps-prune) and gates everything downstream
 - `build`, `test`, `integration-test` run in parallel after `static-check` passes
 - `e2e` (Compose) runs after `build` + `test` — `make e2e-compose` exercises the full Dapr round-trip against a local `apache/kafka:4.2.0` broker
 - `e2e-kind` runs after `build` + `test` — `helm/kind-action` creates a KinD cluster, then `make k8s-dapr-deploy → k8s-kafka-deploy (Strimzi 1.0) → k8s-workload-deploy → k8s-test` validates the production K8s path on every push
@@ -185,7 +184,7 @@ The weekly cleanup workflow (`.github/workflows/cleanup-runs.yml`) prunes runs o
 
 Deferred items waiting on upstream. Re-evaluate on each `/upgrade-analysis` pass.
 
-_(none currently — the kubectl/kindest-node 1.36 item was resolved by the kind 0.32.0 coordinated bump: kind 0.32.0 + kubectl 1.36.2 + `KIND_NODE_IMAGE` v1.36.1, all aligned on the 1.36 line, no skew.)_
+_(none currently.)_
 
 ## Skills
 

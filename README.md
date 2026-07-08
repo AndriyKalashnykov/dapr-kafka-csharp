@@ -8,7 +8,7 @@
 
 Delivers a production-ready Dapr pub/sub implementation in C# on .NET 10: a console producer and an ASP.NET Core consumer exchange `SampleMessage` events through Dapr sidecars over Apache Kafka. The consumer unwraps CloudEvents envelopes via Dapr's middleware, filters on `event.type == com.dapr.event.sent`, and returns RFC 7807 ProblemDetails on malformed input. The same workload runs unchanged on two paths — Docker Compose against `apache/kafka:4.2.0` for fast iteration, or Kubernetes via KinD with Dapr 1.17 (Helm 4) and Strimzi 1.0 provisioning a single-broker KRaft Kafka cluster on the `kafka.strimzi.io/v1` API.
 
-A three-layer test pyramid on TUnit 1.44 + FakeItEasy covers unit (wire schema, publish-loop resilience), integration (consumer HTTP, CloudEvents middleware, and ProblemDetails contract via `WebApplicationFactory`), and end-to-end (full Dapr round-trip on Compose and KinD, with the `e2e-kind` CI job validating the production K8s path on every push). Tag releases pass five supply-chain gates before publishing to GHCR — Trivy CVE scan (CRITICAL/HIGH blocking), `container-structure-test` filesystem and non-root posture checks, boot-marker smoke test, OWASP ZAP DAST baseline against the consumer, and cosign keyless OIDC signing of the multi-arch (`linux/amd64` + `linux/arm64`) digest. Renovate tracks every version pin across `.mise.toml`, `Makefile`, NuGet, `.env`, Dockerfiles, k8s manifests, GitHub Actions, and inline workflow annotations (81 deps across 7 managers).
+A three-layer test pyramid on TUnit 1.44 + FakeItEasy covers unit (wire schema, publish-loop resilience), integration (consumer HTTP, CloudEvents middleware, and ProblemDetails contract via `WebApplicationFactory`), and end-to-end (full Dapr round-trip on Compose and KinD, with the `e2e-kind` CI job validating the production K8s path on every push). Tag releases pass five supply-chain gates before publishing to GHCR — Trivy CVE scan (CRITICAL/HIGH blocking), `container-structure-test` filesystem and non-root posture checks, boot-marker smoke test, OWASP ZAP DAST baseline against the consumer, and cosign keyless OIDC signing of the multi-arch (`linux/amd64` + `linux/arm64`) digest. Renovate tracks every version pin across `.mise.toml`, `Makefile`, NuGet, `.env.example`, Dockerfiles, k8s manifests, GitHub Actions, and inline workflow annotations (80+ deps across 7 managers).
 
 <p align="center"><img src="docs/diagrams/out/c4-context.png" alt="System Context — the Operator runs the demo, which publishes and subscribes to Apache Kafka via Dapr sidecars" width="900"></p>
 
@@ -72,7 +72,7 @@ make deps      # runs `mise install` (no sudo; installs to $HOME/.local/share/mi
 
 ### Cluster Topology — KinD
 
-<p align="center"><img src="docs/diagrams/out/c4-deployment.png" alt="Deployment View — a KinD cluster (kindest/node v1.36.1) with the Dapr control plane in dapr-system, Strimzi-managed Kafka in kafka, and producer/consumer pods (each with a daprd sidecar) plus a LoadBalancer Service in dapr-app; host-side cloud-provider-kind allocates the LoadBalancer IP" width="900"></p>
+<p align="center"><img src="docs/diagrams/out/c4-deployment.png" alt="Deployment View — a KinD cluster (kindest/node v1.36.1) with the Dapr control plane in dapr-system, Strimzi-managed Kafka in kafka, and producer/consumer pods (each with a daprd sidecar) plus a LoadBalancer Service in dapr-app; host-side cloud-provider-kind allocates the LoadBalancer IP" width="846"></p>
 
 ### Event Flow — `dapr-app` namespace
 
@@ -297,7 +297,7 @@ GitHub Actions runs on push to `main`, tag pushes (`v*`), and pull requests. The
 | Job | Triggers | Steps |
 |-----|----------|-------|
 | **changes** | push, PR, tags | `dorny/paths-filter` detector — `outputs.code` skips heavy jobs on doc-only changes (no Rulesets deadlock); `outputs.docs` gates `static-check` only so `mermaid-lint` + `diagrams-check` still run on Markdown/`docs/` edits. Force-true on `refs/tags/*` |
-| **static-check** | code change | Format check, warnings-as-errors, hadolint |
+| **static-check** | code or docs change | Full `make static-check` composite: format + warnings-as-errors + hadolint + vulncheck + gitleaks + Trivy fs/config + mermaid-lint + diagrams-check + deps-prune |
 | **build** | after static-check | Build the solution |
 | **test** | after static-check | Run unit tests, upload results artifact |
 | **integration-test** | after static-check | Run integration tests, upload results artifact |
@@ -342,7 +342,7 @@ A weekly **cleanup** workflow (`cleanup-runs.yml`) prunes runs older than 7 days
 
 No external secrets or `vars.*` are required.
 
-[Renovate](https://docs.renovatebot.com/) keeps dependencies up to date with platform automerge enabled. Every version pin is tracked: `.mise.toml` (aqua backends + core tools), `Makefile` constants annotated with `# renovate:` (Mermaid CLI, Dapr chart, Strimzi operator), `.env` (Kafka image digest), `*.csproj` (NuGet), Dockerfile `FROM` digests, docker-compose `image:` fields, `k8s/*.yaml` `image:` fields (via the `kubernetes` manager), GitHub Actions `uses:` refs, and inline `# renovate:` annotations above env-block constants in `.github/workflows/*.yml` (container-structure-test, OWASP ZAP).
+[Renovate](https://docs.renovatebot.com/) keeps dependencies up to date with platform automerge enabled. Every version pin is tracked: `.mise.toml` (aqua backends + core tools), `Makefile` constants annotated with `# renovate:` (Mermaid CLI, Dapr chart, Strimzi operator), `.env.example` (Kafka image digest), `*.csproj` (NuGet), Dockerfile `FROM` digests, docker-compose `image:` fields, `k8s/*.yaml` `image:` fields (via the `kubernetes` manager), GitHub Actions `uses:` refs, and inline `# renovate:` annotations above env-block constants in `.github/workflows/*.yml` (container-structure-test, OWASP ZAP).
 
 ## Contributing
 
