@@ -32,6 +32,16 @@ KIND_NODE_IMAGE := kindest/node:v1.35.0@sha256:452d707d4862f52530247495d180205e0
 # renovate: datasource=docker depName=minlag/mermaid-cli
 MERMAID_CLI_VERSION := 11.12.0
 
+# renovate: datasource=docker depName=plantuml/plantuml
+PLANTUML_VERSION := 1.2026.6
+
+# C4-PlantUML stdlib is VENDORED under docs/diagrams/C4-PlantUML/ (see `make vendor-diagrams`)
+# so renders never hit raw.githubusercontent.com (the HTTP-429 render flake). Deliberately
+# NOT Renovate-tracked: a bump the bot cannot re-vendor + re-render would be a standing red
+# PR under automerge. Bump by hand: `make vendor-diagrams C4_PLANTUML_VERSION=vX.Y.Z` then
+# `make diagrams` and commit the re-rendered PNGs.
+C4_PLANTUML_VERSION := v2.13.0
+
 # === Kafka / Dapr pinned versions (Renovate-tracked via inline comments). ===
 # renovate: datasource=github-releases depName=dapr/dapr
 DAPR_CHART_VERSION := 1.17.6
@@ -159,6 +169,56 @@ mermaid-lint:
 	done; \
 	echo "mermaid-lint passed"
 
+# === Architecture diagrams (C4-PlantUML → committed PNG) ===
+DIAGRAM_DIR   := docs/diagrams
+DIAGRAM_SRC   := $(wildcard $(DIAGRAM_DIR)/*.puml)
+DIAGRAM_OUT   := $(patsubst $(DIAGRAM_DIR)/%.puml,$(DIAGRAM_DIR)/out/%.png,$(DIAGRAM_SRC))
+# Stamp filename encodes PLANTUML_VERSION so a renderer bump (with no .puml edit) still
+# invalidates the prereq and forces a full re-render — the drift a .puml-only prereq misses.
+DIAGRAM_STAMP := $(DIAGRAM_DIR)/out/.plantuml-$(PLANTUML_VERSION).stamp
+
+#diagrams: @ Render C4-PlantUML architecture diagrams to PNG (pinned plantuml/plantuml, vendored stdlib)
+diagrams: $(DIAGRAM_OUT)
+
+$(DIAGRAM_DIR)/out/%.png: $(DIAGRAM_DIR)/%.puml $(DIAGRAM_STAMP)
+	@mkdir -p $(DIAGRAM_DIR)/out
+	@docker run --rm -v "$(CURDIR)/$(DIAGRAM_DIR):/work" -w /work \
+		--user $$(id -u):$$(id -g) \
+		-e HOME=/tmp -e _JAVA_OPTIONS=-Duser.home=/tmp \
+		plantuml/plantuml:$(PLANTUML_VERSION) \
+		-DRELATIVE_INCLUDE=. -tpng -o out $(notdir $<)
+
+$(DIAGRAM_STAMP):
+	@mkdir -p $(DIAGRAM_DIR)/out
+	@rm -f $(DIAGRAM_DIR)/out/.plantuml-*.stamp
+	@touch $@
+
+#diagrams-clean: @ Remove rendered diagram artefacts
+diagrams-clean:
+	@rm -rf $(DIAGRAM_DIR)/out
+
+#diagrams-check: @ Verify committed diagram PNGs match current source + renderer (CI drift gate)
+diagrams-check: diagrams
+	@# Two-part predicate (NOT `git status --porcelain`): goes GREEN on a staged-and-matching
+	@# render (so a pre-commit `make ci` passes), RED on a stale tracked PNG OR an untracked
+	@# (un-added) render — closing the untracked blind spot bare `git diff` has. See
+	@# /architecture-diagrams "Negative-testing the drift gate" gotcha 3.
+	@git diff --exit-code -- $(DIAGRAM_DIR)/out >/dev/null 2>&1 || { \
+		echo "ERROR: committed diagram PNG is stale — run 'make diagrams' and commit."; \
+		git --no-pager diff --stat -- $(DIAGRAM_DIR)/out; exit 1; }
+	@U=$$(git ls-files --others --exclude-standard -- $(DIAGRAM_DIR)/out); \
+		[ -z "$$U" ] || { echo "ERROR: rendered output not committed/staged: $$U"; exit 1; }
+	@echo "diagrams-check: rendered output matches committed source"
+
+#vendor-diagrams: @ Re-download the pinned C4-PlantUML stdlib into docs/diagrams/C4-PlantUML/ (manual bump)
+vendor-diagrams:
+	@mkdir -p $(DIAGRAM_DIR)/C4-PlantUML
+	@for f in C4.puml C4_Context.puml C4_Container.puml; do \
+		echo "fetching $$f @ $(C4_PLANTUML_VERSION)"; \
+		curl -fsSL "https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/$(C4_PLANTUML_VERSION)/$$f" \
+			-o "$(DIAGRAM_DIR)/C4-PlantUML/$$f"; \
+	done
+
 #deps-prune-check: @ Detect unused transitive NuGet packages (NU1510)
 deps-prune-check: deps
 	@set -e; out=$$(dotnet build "$(SOLUTION)" -c Release --nologo -v q 2>&1 | grep "NU1510" || true); \
@@ -177,7 +237,7 @@ lint: deps
 	fi
 
 #static-check: @ Composite quality gate (lint + vulncheck + secrets + trivy-fs + trivy-config + mermaid-lint + deps-prune-check)
-static-check: lint vulncheck secrets trivy-fs trivy-config mermaid-lint deps-prune-check
+static-check: lint vulncheck secrets trivy-fs trivy-config mermaid-lint diagrams-check deps-prune-check
 
 #format: @ Auto-fix code formatting
 format: deps
@@ -414,6 +474,7 @@ renovate-validate: deps
 .PHONY: help deps-mise deps deps-k8s clean build \
 	test integration-test e2e e2e-compose \
 	vulncheck secrets trivy-fs trivy-config mermaid-lint deps-prune-check \
+	diagrams diagrams-clean diagrams-check vendor-diagrams \
 	lint static-check format ci ci-run release version \
 	image-build docker-smoke-test _smoke-one local-kafka-run local-kafka-stop \
 	dapr-run-producer dapr-run-consumer update \

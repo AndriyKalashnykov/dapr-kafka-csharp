@@ -10,15 +10,7 @@ Delivers a production-ready Dapr pub/sub implementation in C# on .NET 10: a cons
 
 A three-layer test pyramid on TUnit 1.44 + FakeItEasy covers unit (wire schema, publish-loop resilience), integration (consumer HTTP, CloudEvents middleware, and ProblemDetails contract via `WebApplicationFactory`), and end-to-end (full Dapr round-trip on Compose and KinD, with the `e2e-kind` CI job validating the production K8s path on every push). Tag releases pass five supply-chain gates before publishing to GHCR — Trivy CVE scan (CRITICAL/HIGH blocking), `container-structure-test` filesystem and non-root posture checks, boot-marker smoke test, OWASP ZAP DAST baseline against the consumer, and cosign keyless OIDC signing of the multi-arch (`linux/amd64` + `linux/arm64`) digest. Renovate tracks every version pin across `.mise.toml`, `Makefile`, NuGet, `.env`, Dockerfiles, k8s manifests, GitHub Actions, and inline workflow annotations (81 deps across 7 managers).
 
-```mermaid
-C4Context
-    title System Context — Dapr Kafka PubSub Demo
-    Person(operator, "Operator", "Developer or CI running the demo locally or on KinD")
-    System(dkc, "Dapr Kafka PubSub", "Pub/sub demo decoupling .NET producer and consumer from Kafka via Dapr sidecars")
-    System_Ext(kafka, "Apache Kafka", "Upstream Apache Kafka (KRaft) — 4.2.0 local / 4.0.0 K8s via Strimzi")
-    Rel(operator, dkc, "Runs", "make dapr-run-* / kind-up")
-    Rel(dkc, kafka, "Publishes / subscribes via Dapr sidecar", "Kafka protocol")
-```
+<p align="center"><img src="docs/diagrams/out/c4-context.png" alt="System Context — the Operator runs the demo, which publishes and subscribes to Apache Kafka via Dapr sidecars" width="900"></p>
 
 ## Tech Stack
 
@@ -71,24 +63,7 @@ make deps      # runs `mise install` (no sudo; installs to $HOME/.local/share/mi
 
 ### Container View
 
-```mermaid
-C4Container
-    title Container View — Dapr sidecar pattern
-    Person(operator, "Operator")
-    System_Boundary(app, "Dapr Kafka PubSub") {
-        Container(producer, "Producer", ".NET 10 console, Dapr.Client 1.17.9", "Publishes SampleMessage every 10s")
-        Container(producer_dapr, "Dapr Sidecar", "daprd 1.17.6, injected at deploy-time", "Produces to Kafka via pubsub component")
-        Container(consumer, "Consumer", ".NET 10, ASP.NET Core, Dapr.AspNetCore 1.17.9", "Handles POST /sampletopic on :6000")
-        Container(consumer_dapr, "Dapr Sidecar", "daprd 1.17.6, injected at deploy-time", "Subscribes to Kafka, delivers CloudEvents")
-    }
-    ContainerDb(kafka, "Kafka", "Apache Kafka 4.x (KRaft)", "Topic: sampletopic")
-    Rel(operator, producer, "dapr run / make dapr-run-producer")
-    Rel(operator, consumer, "dapr run / make dapr-run-consumer")
-    Rel(producer, producer_dapr, "PublishEventAsync", "HTTP/gRPC to :3500/:50001")
-    Rel(producer_dapr, kafka, "Produce", "Kafka protocol")
-    Rel(kafka, consumer_dapr, "Consume", "Kafka protocol")
-    Rel(consumer_dapr, consumer, "POST /sampletopic", "HTTP + CloudEvents envelope")
-```
+<p align="center"><img src="docs/diagrams/out/c4-container.png" alt="Container View — Producer and Consumer .NET apps each with a daprd sidecar; sidecars produce to and consume from the Kafka sampletopic; the Consumer receives POSTs as CloudEvents" width="820"></p>
 
 - **Producer** is a .NET 10 console app in an infinite loop — generates a `SampleMessage` every 10s and calls `DaprClient.PublishEventAsync("sampletopic", "sampletopic", message)`. Never talks to Kafka directly.
 - **Dapr sidecars** are the architectural point: the app sees only HTTP/gRPC to `localhost`; the sidecar owns Kafka connection, serialization, retries, and observability. Pub/sub component config: `components/kafka-pubsub.yaml` (shared by both apps for local Compose) / `k8s/kafka-pubsub.yaml` (Kubernetes).
@@ -155,7 +130,7 @@ tests/              TUnit test projects (unit + integration)
 e2e/                KinD + Docker Compose end-to-end shell scripts
 ```
 
-Diagram sources live inline in this README — they are authored in Mermaid and parsed on every push by `make mermaid-lint` (pinned `minlag/mermaid-cli` Docker image) as part of `make static-check`.
+The C4 **Context** and **Container** heroes are C4-PlantUML — source in [`docs/diagrams/*.puml`](docs/diagrams), rendered to committed PNGs by `make diagrams` (pinned `plantuml/plantuml` Docker image; the C4-PlantUML stdlib is vendored under `docs/diagrams/C4-PlantUML/` so renders need no network). `make diagrams-check` fails the build if a committed PNG drifts from its source or the pinned renderer. The **Cluster Topology** and **Event Flow** views above are inline Mermaid, parsed by `make mermaid-lint` (pinned `minlag/mermaid-cli`). Both gates run on every push as part of `make static-check`.
 
 ## Build & Package
 
@@ -280,12 +255,15 @@ Run `make help` for the generated list.
 | Target | Description |
 |--------|-------------|
 | `make lint` | Format check + warnings-as-errors + hadolint |
-| `make static-check` | Composite: `lint + vulncheck + secrets + trivy-fs + trivy-config + mermaid-lint + deps-prune-check` |
+| `make static-check` | Composite: `lint + vulncheck + secrets + trivy-fs + trivy-config + mermaid-lint + diagrams-check + deps-prune-check` |
 | `make vulncheck` | `dotnet list package --vulnerable` |
 | `make secrets` | gitleaks scan |
 | `make trivy-fs` | Trivy filesystem scan (CRITICAL/HIGH) |
 | `make trivy-config` | Trivy scan on `k8s/` manifests |
 | `make mermaid-lint` | Parse every ```mermaid block in markdown files (pinned `minlag/mermaid-cli`) |
+| `make diagrams` | Render C4-PlantUML architecture diagrams to committed PNGs (pinned `plantuml/plantuml`, vendored stdlib) |
+| `make diagrams-check` | Fail if a committed diagram PNG drifts from its `.puml` source or the pinned renderer |
+| `make vendor-diagrams` | Re-download the pinned C4-PlantUML stdlib (manual bump of `C4_PLANTUML_VERSION`) |
 | `make deps-prune-check` | Detect unused transitive NuGet packages (NU1510) |
 
 ### CI
