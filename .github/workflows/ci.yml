@@ -38,6 +38,13 @@ jobs:
       # `docker` publish job. Force-true on tag refs so tag runs always go through
       # the full pipeline including publish + sign.
       code: ${{ startsWith(github.ref, 'refs/tags/') && 'true' || steps.filter.outputs.code }}
+      # `docs` gates ONLY `static-check` (which carries mermaid-lint + diagrams-check),
+      # so a docs-only change (README Mermaid flowcharts, or a docs/diagrams/*.puml edit)
+      # still runs those drift gates while the heavy jobs (build/test/e2e/e2e-kind) stay
+      # gated on `code` and skip. Without this, a docs-only change makes code=false →
+      # static-check skips → mermaid-lint AND diagrams-check are bypassed for exactly the
+      # files they guard. See /ci-workflow §15h refinement (a).
+      docs: ${{ steps.filter.outputs.docs }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -61,10 +68,17 @@ jobs:
               - '!.claude/**'
               - '!docs/**'
               - 'CLAUDE.md'
+            # Markdown (README Mermaid flowcharts) + diagram sources/renders. Gates
+            # static-check only, so mermaid-lint + diagrams-check run on doc-only changes.
+            docs:
+              - '**.md'
+              - 'docs/**'
 
   static-check:
     needs: [changes]
-    if: needs.changes.outputs.code == 'true'
+    # Also run on docs-only changes so mermaid-lint + diagrams-check validate the
+    # README Mermaid flowcharts and the C4-PlantUML diagrams. Heavy jobs stay on `code`.
+    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

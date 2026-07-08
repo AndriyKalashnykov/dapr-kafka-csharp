@@ -162,7 +162,7 @@ Two diagram gates are wired into `static-check`:
 
 GitHub Actions (`.github/workflows/ci.yml`) runs on push to `main`, tag pushes (`v*`), and pull requests:
 
-- `changes` (`dorny/paths-filter` detector) gates the heavy jobs — doc-only pushes skip downstream without deadlocking the Rulesets `ci-pass` requirement. Force-true on `refs/tags/*` so publish runs always go through the full pipeline
+- `changes` (`dorny/paths-filter` detector) gates the heavy jobs — doc-only pushes skip downstream without deadlocking the Rulesets `ci-pass` requirement. Force-true on `refs/tags/*` so publish runs always go through the full pipeline. A second `docs` output (`**.md` + `docs/**`) gates **only** `static-check` so a doc-only change (README Mermaid flowcharts, `docs/diagrams/*.puml`) still runs `mermaid-lint` + `diagrams-check` while `build`/`test`/`e2e`/`e2e-kind` skip
 - `static-check` → gates everything downstream (format + warnings-as-errors + hadolint)
 - `build`, `test`, `integration-test` run in parallel after `static-check` passes
 - `e2e` (Compose) runs after `build` + `test` — `make e2e-compose` exercises the full Dapr round-trip against a local `apache/kafka:4.2.0` broker
