@@ -185,7 +185,7 @@ The weekly cleanup workflow (`.github/workflows/cleanup-runs.yml`) prunes runs o
 
 Deferred items waiting on upstream. Re-evaluate on each `/upgrade-analysis` pass.
 
-- [ ] **kubectl 1.36 / kindest/node 1.36** — both are released, but `kind 0.31.0` still ships `kindest/node:v1.35.0` as its default. Bumping kubectl past 1.36 while the cluster is 1.35 creates a 1-minor skew (acceptable but uncomfortable). Trigger: when kind 0.32+ ships and defaults to v1.36. Renovate will PR the three independently — verify skew window before merging.
+_(none currently — the kubectl/kindest-node 1.36 item was resolved by the kind 0.32.0 coordinated bump: kind 0.32.0 + kubectl 1.36.2 + `KIND_NODE_IMAGE` v1.36.1, all aligned on the 1.36 line, no skew.)_
 
 ## Skills
 

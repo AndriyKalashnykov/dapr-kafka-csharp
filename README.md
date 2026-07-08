@@ -49,7 +49,7 @@ The `dapr-run-*` targets invoke `dapr run --app-id ... -- dotnet run`. Without t
 | [.NET SDK](https://dotnet.microsoft.com/download) | 10.0.203 (from `global.json`) | Build and run C# projects |
 | [Docker](https://www.docker.com/) | latest | Run Kafka locally, build container images |
 | [Dapr CLI](https://docs.dapr.io/getting-started/install-dapr-cli/) | 1.17.1 (mise-pinned) | Run Dapr sidecars locally |
-| [KinD](https://kind.sigs.k8s.io/) | 0.31.0 (mise-pinned) | Local Kubernetes cluster (for `make kind-up`) |
+| [KinD](https://kind.sigs.k8s.io/) | 0.32.0 (mise-pinned) | Local Kubernetes cluster (for `make kind-up`) |
 | [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind) | 0.10.0 (mise-pinned) | LoadBalancer controller for KinD (allocates IPs on the `kind` Docker network) |
 | [Helm](https://helm.sh/) | 4.1.4 (mise-pinned) | Deploy Dapr control plane and Strimzi operator |
 
@@ -76,7 +76,7 @@ make deps      # runs `mise install` (no sudo; installs to $HOME/.local/share/mi
 flowchart TB
     subgraph host["Host (Docker)"]
         cpk["cloud-provider-kind<br/>(LoadBalancer daemon)"]
-        subgraph cluster["KinD cluster: dapr-kafka<br/>(kindest/node:v1.35.0)"]
+        subgraph cluster["KinD cluster: dapr-kafka<br/>(kindest/node:v1.36.1)"]
             ns_dapr["Namespace: dapr-system<br/>Dapr control plane<br/>(operator · placement · sentry · sidecar-injector)"]
             ns_kafka["Namespace: kafka<br/>Strimzi 1.0 operator + Kafka CR<br/>(upstream apache/kafka 4.2, KRaft)"]
             ns_app["Namespace: dapr-app<br/>producer + consumer pods<br/>(see Event Flow below)"]
