@@ -46,15 +46,27 @@ else
     exit 1
 fi
 
+section "Build solution once (before starting apps)"
+# Build the whole solution up front so the consumer and producer are launched with
+# `dotnet run --no-build`. Two concurrent `dotnet run` invocations in the same checkout
+# otherwise race on MSBuild of the shared `models` project — both rewrite
+# models/bin/Debug/net10.0/models.deps.json and the second build dies with
+# "The process cannot access the file ... because it is being used by another process"
+# (MSB4018 / GenerateDepsFile). Building once, then `--no-build`, removes the race
+# deterministically. Config MUST be Debug so the pre-built output matches `dotnet run`'s
+# default configuration.
+dotnet build dapr-kafka-csharp.slnx -c Debug --nologo -v q
+echo "Solution built"
+
 section "Start consumer with Dapr sidecar"
-(cd consumer && dapr run --app-id consumer --app-port 6000 --resources-path ../components --log-level warn -- dotnet run) \
+(cd consumer && dapr run --app-id consumer --app-port 6000 --resources-path ../components --log-level warn -- dotnet run --no-build) \
     > "${LOG_CONSUMER}" 2>&1 &
 PIDS+=($!)
 # Give consumer + sidecar time to register subscription.
 sleep 10
 
 section "Start producer with Dapr sidecar"
-(cd producer && dapr run --app-id producer --resources-path ../components --log-level warn -- dotnet run) \
+(cd producer && dapr run --app-id producer --resources-path ../components --log-level warn -- dotnet run --no-build) \
     > "${LOG_PRODUCER}" 2>&1 &
 PIDS+=($!)
 
